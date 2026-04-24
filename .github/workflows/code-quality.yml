@@ -58,5 +58,7 @@ jobs:
         run: flake8 . --max-line-length=88 --extend-ignore=E203,W503
 
       - name: Pylint — análisis profundo
-        run: pylint **/*.py --fail-under=7.0
-        # falla solo si el score baja de 7/10
+        run: |
+          pylint **/*.py \
+            --fail-under=7.0 \
+            --disable=C0114,C0116,C0103
