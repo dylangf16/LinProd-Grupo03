@@ -1,10 +1,11 @@
 # linprod.py
 
 import os
-import sys
 import random
+import sys
 
 CAPACIDAD_MAXIMA = 100
+
 
 class Tarea:
     def __init__(self, nombre, tiempo_proceso):
@@ -31,8 +32,10 @@ class Tarea:
             self.tiempo_restante = self.tiempo_proceso
 
     def __repr__(self):
-        return (f"Tarea({self.nombre}, EP={self.esta_procesando}, "
-                f"CE={self.contenido_esperando})")
+        return (
+            f"Tarea({self.nombre}, EP={self.esta_procesando}, "
+            f"CE={self.contenido_esperando})"
+        )
 
 
 class Proceso:
@@ -48,16 +51,17 @@ class Proceso:
     def tick(self, tick_actual):
         for i, tarea in enumerate(self.tareas):
             tarea.tick()
-            if i > 0 and not self.tareas[i-1].esta_procesando:
-                if self.tareas[i-1].total_procesados > 0:
+            if i > 0 and not self.tareas[i - 1].esta_procesando:
+                if self.tareas[i - 1].total_procesados > 0:
                     self.tareas[i].recibir(1)
-                    self.tareas[i-1].total_procesados -= 1
+                    self.tareas[i - 1].total_procesados -= 1
 
         if self.tiempo_inicio is None and self.tareas[0].esta_procesando:
             self.tiempo_inicio = tick_actual
 
-        todas_listas = all(not t.esta_procesando and t.contenido_esperando == 0
-                          for t in self.tareas)
+        todas_listas = all(
+            not t.esta_procesando and t.contenido_esperando == 0 for t in self.tareas
+        )
         if todas_listas and self.tiempo_inicio is not None and self.tiempo_fin is None:
             self.tiempo_fin = tick_actual
 
@@ -84,7 +88,7 @@ class LineaProduccion:
             for i, proceso in enumerate(self.procesos):
                 proceso.tick(self.tick_actual)
                 if i > 0:
-                    anterior = self.procesos[i-1]
+                    anterior = self.procesos[i - 1]
                     for tarea in anterior.tareas:
                         if tarea.total_procesados > 0:
                             proceso.recibir(tarea.total_procesados)
@@ -99,19 +103,23 @@ class LineaProduccion:
         stats = {
             "ticks_totales": self.tick_actual,
             "cantidad_productos": self.cantidad_ingreso,
-            "procesos": []
+            "procesos": [],
         }
         tarea_mayor_espera = None
         max_espera = 0
 
         for proceso in self.procesos:
-            duracion = (proceso.tiempo_fin or self.tick_actual) - (proceso.tiempo_inicio or 0)
-            stats["procesos"].append({
-                "nombre": proceso.nombre,
-                "inicio": proceso.tiempo_inicio,
-                "fin": proceso.tiempo_fin,
-                "duracion": duracion
-            })
+            duracion = (proceso.tiempo_fin or self.tick_actual) - (
+                proceso.tiempo_inicio or 0
+            )
+            stats["procesos"].append(
+                {
+                    "nombre": proceso.nombre,
+                    "inicio": proceso.tiempo_inicio,
+                    "fin": proceso.tiempo_fin,
+                    "duracion": duracion,
+                }
+            )
             for tarea in proceso.tareas:
                 if tarea.contenido_esperando > max_espera:
                     max_espera = tarea.contenido_esperando
