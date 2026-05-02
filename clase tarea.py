@@ -1,12 +1,12 @@
 class Tarea:
     def __init__(self, nombre, tiempoProceso):
         self.nombre = nombre
-        self.tiempoProceso = tiempoProceso   # duración en ticks
-        self.estaProcesando = False          # indica si está ocupada
-        self.contenidoEsperando = []         # lista de productos esperando
-        self.productoActual = None           # producto en proceso
-        self.ticksRestantes = 0              # tiempo que falta para terminar
-        self.siguienteTarea = None           # referencia a la siguiente tarea
+        self.tiempoProceso = tiempoProceso  # duración en ticks
+        self.estaProcesando = False  # indica si está ocupada
+        self.contenidoEsperando = []  # lista de productos esperando
+        self.productoActual = None  # producto en proceso
+        self.ticksRestantes = 0  # tiempo que falta para terminar
+        self.siguienteTarea = None  # referencia a la siguiente tarea
 
     def recibirProducto(self, producto):
         """Recibe un producto: si está libre lo procesa, si no lo encola."""
