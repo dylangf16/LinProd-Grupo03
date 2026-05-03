@@ -1,12 +1,12 @@
 class Proceso:
     def __init__(self, nombre, tareas):
         self.nombre = nombre
-        self.tareas = tareas 
-        
+        self.tareas = tareas
+
         # Conectar las tareas en orden
         for i in range(len(self.tareas) - 1):
             self.tareas[i].siguienteTarea = self.tareas[i + 1]
-        
+
         self.siguienteProceso = None
         self.tiempoInicio = None
         self.tiempoFin = None
@@ -23,7 +23,7 @@ class Proceso:
             # Registrar el tiempo de inicio del proceso
             if self.tiempoInicio is None:
                 self.tiempoInicio = producto.tiempoIngreso
-            
+
             # Enviar producto a la primera tarea
             self.getPrimeraTarea().recibirProducto(producto)
         else:
