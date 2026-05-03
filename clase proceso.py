@@ -12,13 +12,13 @@ class Proceso:
         self.tiempoFin = None
 
     def tick(self):
-        """Avanza un ciclo de tiempo en todas las tareas del proceso."""
+        """Avanza un ciclo de tiempo en todas las tareas del proceso"""
         tiempoActual = None
         for tarea in self.tareas:
             tarea.tick(tiempoActual)
 
     def recibirProducto(self, producto):
-        """Recibe un producto y lo envía a la primera tarea."""
+        """Recibe un producto y lo envía a la primera tarea"""
         if self.tareas:
             # Registrar el tiempo de inicio del proceso
             if self.tiempoInicio is None:
@@ -32,13 +32,13 @@ class Proceso:
                 self.siguienteProceso.recibirProducto(producto)
 
     def getPrimeraTarea(self):
-        """Devuelve la primera tarea del proceso."""
+        """Devuelve la primera tarea del proceso"""
         if self.tareas:
             return self.tareas[0]
         return None
 
     def getUltimaTarea(self):
-        """Devuelve la última tarea del proceso."""
+        """Devuelve la última tarea del proceso"""
         if self.tareas:
             return self.tareas[-1]
         return None
