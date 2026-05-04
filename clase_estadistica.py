@@ -21,7 +21,9 @@ class Estadisticas:
             ]
 
             if productos_finalizados:
-                inicio = min(producto.tiempo_ingreso for producto in productos_finalizados)
+                inicio = min(
+                    producto.tiempo_ingreso for producto in productos_finalizados
+                )
                 fin = max(producto.tiempo_salida for producto in productos_finalizados)
                 duracion = fin - inicio
             else:
@@ -29,12 +31,14 @@ class Estadisticas:
                 fin = None
                 duracion = None
 
-            resultados.append({
-                "proceso": proceso.nombre,
-                "inicio": inicio,
-                "fin": fin,
-                "duracion": duracion
-            })
+            resultados.append(
+                {
+                    "proceso": proceso.nombre,
+                    "inicio": inicio,
+                    "fin": fin,
+                    "duracion": duracion,
+                }
+            )
 
         return resultados
 
@@ -62,7 +66,8 @@ class Estadisticas:
 
     def tiempo_primer_producto(self):
         finalizados = [
-            producto for producto in self.linea.productos
+            producto
+            for producto in self.linea.productos
             if producto.tiempo_salida is not None
         ]
 
@@ -73,7 +78,8 @@ class Estadisticas:
 
     def tiempo_ultimo_producto(self):
         finalizados = [
-            producto for producto in self.linea.productos
+            producto
+            for producto in self.linea.productos
             if producto.tiempo_salida is not None
         ]
 
@@ -84,7 +90,8 @@ class Estadisticas:
 
     def tiempo_promedio_finalizacion(self):
         finalizados = [
-            producto for producto in self.linea.productos
+            producto
+            for producto in self.linea.productos
             if producto.tiempo_salida is not None
         ]
 
@@ -92,8 +99,7 @@ class Estadisticas:
             return 0
 
         tiempos = [
-            producto.tiempo_salida - producto.tiempo_ingreso
-            for producto in finalizados
+            producto.tiempo_salida - producto.tiempo_ingreso for producto in finalizados
         ]
 
         return sum(tiempos) / len(tiempos)
@@ -154,7 +160,9 @@ class Estadisticas:
         print()
         print("========== ESTADÍSTICAS ==========")
 
-        print(f"Cantidad de productos procesados: {self.cantidad_productos_procesados()}")
+        print(
+            f"Cantidad de productos procesados: {self.cantidad_productos_procesados()}"
+        )
         print(f"Tiempo total de simulación: {self.tiempo_total_simulacion()} segundos")
 
         print()
@@ -167,16 +175,24 @@ class Estadisticas:
             )
 
         print()
-        print(f"Tarea con mayor concentración de espera: {self.tarea_mayor_concentracion_espera()}")
+        print(
+            f"Tarea con mayor concentración de espera: {self.tarea_mayor_concentracion_espera()}"
+        )
 
         print()
         print("----- REPORTE GENERAL DE LA LÍNEA -----")
         print(f"Primer producto finalizó en: T{self.tiempo_primer_producto()}")
         print(f"Último producto finalizó en: T{self.tiempo_ultimo_producto()}")
-        print(f"Tiempo promedio de finalización: {self.tiempo_promedio_finalizacion():.2f} segundos")
+        print(
+            f"Tiempo promedio de finalización: {self.tiempo_promedio_finalizacion():.2f} segundos"
+        )
         print(f"Proceso con mayor congestionamiento: {self.proceso_mayor_congestion()}")
-        print(f"Tiempo promedio de espera para iniciar una tarea: {self.promedio_espera_tareas():.2f} segundos")
-        print(f"Proceso y tarea con mayor tiempo de espera: {self.proceso_y_tarea_mayor_espera()}")
+        print(
+            f"Tiempo promedio de espera para iniciar una tarea: {self.promedio_espera_tareas():.2f} segundos"
+        )
+        print(
+            f"Proceso y tarea con mayor tiempo de espera: {self.proceso_y_tarea_mayor_espera()}"
+        )
         print("---------------------------------------")
 
         print("==================================")
