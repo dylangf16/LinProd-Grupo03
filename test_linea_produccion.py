@@ -23,7 +23,6 @@ from clase_linea_produccion import LineaProduccion
 from clase_proceso import Proceso
 from clase_tarea import Tarea
 
-
 # ----------------------------------------------------------------------
 # Utilidades de verificacion
 # ----------------------------------------------------------------------
