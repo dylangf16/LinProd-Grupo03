@@ -4,8 +4,7 @@ class Estadisticas:
 
     def cantidad_productos_procesados(self):
         return sum(
-            1 for producto in self.linea.productos
-            if producto.estado == "finalizado"
+            1 for producto in self.linea.productos if producto.estado == "finalizado"
         )
 
     def tiempo_total_simulacion(self):
@@ -16,7 +15,8 @@ class Estadisticas:
 
         for proceso in self.linea.procesos:
             productos_finalizados = [
-                producto for producto in self.linea.productos
+                producto
+                for producto in self.linea.productos
                 if producto.tiempo_salida is not None
             ]
 
