@@ -23,6 +23,7 @@ from clase_proceso import Proceso
 from clase_tarea import Tarea
 from clase_estadistica import Estadisticas
 
+
 # ----------------------------------------------------------------------
 # Utilidades de verificacion
 # ----------------------------------------------------------------------

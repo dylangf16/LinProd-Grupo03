@@ -15,6 +15,9 @@ class Tarea:
         self.siguiente_tarea = None
         self.proceso = None  # asignado por Proceso al construirse
 
+        #historial para estadística
+        self.historial_espera = []
+
     def recibir_producto(self, producto):
         """Recibe un producto: si está libre lo procesa, si no lo encola (FIFO)."""
         if not self.esta_procesando:
@@ -33,6 +36,7 @@ class Tarea:
         a la siguiente tarea o, si es la última del proceso, al proceso. Tras
         quedar libre, atiende al siguiente en cola dentro del mismo tick.
         """
+        self.historial_espera.append(self.cantidad_en_espera())
         if self.esta_procesando:
             self.ticks_restantes -= 1
             if self.ticks_restantes == 0:
@@ -54,6 +58,9 @@ class Tarea:
 
     def cantidad_en_espera(self):
         return len(self.contenido_esperando)
+    
+    def veces_con_espera(self):
+        return sum(1 for ce in self.historial_espera if ce > 0)
 
     def __str__(self):
         ep = "S" if self.esta_procesando else "N"
