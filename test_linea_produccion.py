@@ -18,10 +18,9 @@ try:
 except Exception:
     pass
 
-from clase_tarea import Tarea
-from clase_proceso import Proceso
 from clase_linea_produccion import LineaProduccion
-
+from clase_proceso import Proceso
+from clase_tarea import Tarea
 
 # ----------------------------------------------------------------------
 # Utilidades de verificacion
@@ -358,12 +357,7 @@ verificar("P", "Reinicio: cantidad nueva = 2", len(linea.productos) == 2)
 # Tras reinicio + carga, solo la primera tarea del proceso inicial debe
 # estar procesando; el resto debe estar libre y sin cola residual.
 primera = linea.get_proceso_inicial().get_primera_tarea()
-otras = [
-    t
-    for p in linea.procesos
-    for t in p.tareas
-    if t is not primera
-]
+otras = [t for p in linea.procesos for t in p.tareas if t is not primera]
 verificar(
     "P",
     "Reinicio: tareas distintas a la primera quedan libres y sin cola",
@@ -391,7 +385,9 @@ print("  * Configuracion segun PDF: >=1 proceso, inicial unico, final unico,")
 print("    cada proceso con >=1 tarea, encadenamiento bidireccional, tareas en orden.")
 print("  * Ejecucion correcta: todos los productos finalizan, tiempos coherentes,")
 print("    salida en orden FIFO, no quedan productos en cola ni tareas ocupadas.")
-print("  * Validaciones: rechazo de inicial/final duplicado y configuracion incompleta.")
+print(
+    "  * Validaciones: rechazo de inicial/final duplicado y configuracion incompleta."
+)
 print("  * Control: pausa detiene el reloj, reanudar continua, reinicio limpia estado.")
 print()
 
