@@ -122,6 +122,7 @@ class LineaProduccion:
                 tarea.producto_actual = None
                 tarea.ticks_restantes = 0
                 tarea.contenido_esperando = []
+                tarea.historial_espera = []
         cantidad = cantidad if cantidad is not None else self.cantidad_ingreso
         self.cargar_productos(cantidad)
 
