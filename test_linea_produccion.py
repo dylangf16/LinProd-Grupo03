@@ -18,10 +18,10 @@ try:
 except Exception:
     pass
 
+from clase_estadistica import Estadisticas
 from clase_linea_produccion import LineaProduccion
 from clase_proceso import Proceso
 from clase_tarea import Tarea
-from clase_estadistica import Estadisticas
 
 # ----------------------------------------------------------------------
 # Utilidades de verificacion
@@ -106,10 +106,11 @@ def correr_test(numero, descripcion, configuracion, cantidad_productos):
     # ---- Inyectar productos y correr ----
     linea.cargar_productos(cantidad_productos)
     linea.correr(max_ciclos=10000)
-    #estadística
+    # estadística
     from clase_estadistica import Estadisticas
+
     estadisticas = Estadisticas(linea)
-    estadisticas.mostrar_resumen()  
+    estadisticas.mostrar_resumen()
 
     # ---- Post-condiciones del corrido ----
     tareas_total = [t for p in linea.procesos for t in p.tareas]

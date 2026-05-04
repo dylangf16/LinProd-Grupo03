@@ -4,8 +4,7 @@ class Estadisticas:
 
     def cantidad_productos_procesados(self):
         return sum(
-            1 for producto in self.linea.productos
-            if producto.estado == "finalizado"
+            1 for producto in self.linea.productos if producto.estado == "finalizado"
         )
 
     def tiempo_total_simulacion(self):
@@ -16,12 +15,15 @@ class Estadisticas:
 
         for proceso in self.linea.procesos:
             productos_finalizados = [
-                producto for producto in self.linea.productos
+                producto
+                for producto in self.linea.productos
                 if producto.tiempo_salida is not None
             ]
 
             if productos_finalizados:
-                inicio = min(producto.tiempo_ingreso for producto in productos_finalizados)
+                inicio = min(
+                    producto.tiempo_ingreso for producto in productos_finalizados
+                )
                 fin = max(producto.tiempo_salida for producto in productos_finalizados)
                 duracion = fin - inicio
             else:
@@ -29,12 +31,14 @@ class Estadisticas:
                 fin = None
                 duracion = None
 
-            resultados.append({
-                "proceso": proceso.nombre,
-                "inicio": inicio,
-                "fin": fin,
-                "duracion": duracion
-            })
+            resultados.append(
+                {
+                    "proceso": proceso.nombre,
+                    "inicio": inicio,
+                    "fin": fin,
+                    "duracion": duracion,
+                }
+            )
 
         return resultados
 
@@ -45,8 +49,16 @@ class Estadisticas:
 
         for proceso in self.linea.procesos:
             for tarea in proceso.tareas:
-                veces = tarea.veces_con_espera() if hasattr(tarea, "veces_con_espera") else 0
-                acumulado = tarea.total_espera_acumulada() if hasattr(tarea, "total_espera_acumulada") else 0
+                veces = (
+                    tarea.veces_con_espera()
+                    if hasattr(tarea, "veces_con_espera")
+                    else 0
+                )
+                acumulado = (
+                    tarea.total_espera_acumulada()
+                    if hasattr(tarea, "total_espera_acumulada")
+                    else 0
+                )
 
                 if veces > mayor_cantidad or (
                     veces == mayor_cantidad and acumulado > mayor_acumulado
@@ -63,10 +75,7 @@ class Estadisticas:
     # -------- NUEVAS ESTADÍSTICAS DE TODA LA LÍNEA --------
 
     def tiempo_primer_producto(self):
-        finalizados = [
-            p for p in self.linea.productos
-            if p.tiempo_salida is not None
-        ]
+        finalizados = [p for p in self.linea.productos if p.tiempo_salida is not None]
 
         if not finalizados:
             return None
@@ -74,10 +83,7 @@ class Estadisticas:
         return min(p.tiempo_salida for p in finalizados)
 
     def tiempo_ultimo_producto(self):
-        finalizados = [
-            p for p in self.linea.productos
-            if p.tiempo_salida is not None
-        ]
+        finalizados = [p for p in self.linea.productos if p.tiempo_salida is not None]
 
         if not finalizados:
             return None
@@ -85,18 +91,12 @@ class Estadisticas:
         return max(p.tiempo_salida for p in finalizados)
 
     def tiempo_promedio_finalizacion(self):
-        finalizados = [
-            p for p in self.linea.productos
-            if p.tiempo_salida is not None
-        ]
+        finalizados = [p for p in self.linea.productos if p.tiempo_salida is not None]
 
         if not finalizados:
             return 0
 
-        tiempos = [
-            p.tiempo_salida - p.tiempo_ingreso
-            for p in finalizados
-        ]
+        tiempos = [p.tiempo_salida - p.tiempo_ingreso for p in finalizados]
 
         return sum(tiempos) / len(tiempos)
 
@@ -121,11 +121,7 @@ class Estadisticas:
         return proceso_mayor.nombre
 
     def promedio_espera_tareas(self):
-        tareas = [
-            tarea
-            for proceso in self.linea.procesos
-            for tarea in proceso.tareas
-        ]
+        tareas = [tarea for proceso in self.linea.procesos for tarea in proceso.tareas]
 
         if not tareas:
             return 0
@@ -150,7 +146,11 @@ class Estadisticas:
 
         for proceso in self.linea.procesos:
             for tarea in proceso.tareas:
-                espera = tarea.total_espera_acumulada() if hasattr(tarea, "total_espera_acumulada") else 0
+                espera = (
+                    tarea.total_espera_acumulada()
+                    if hasattr(tarea, "total_espera_acumulada")
+                    else 0
+                )
 
                 if espera > mayor_espera:
                     mayor_espera = espera
@@ -165,7 +165,9 @@ class Estadisticas:
     def mostrar_resumen(self):
         print()
         print("========== ESTADÍSTICAS ==========")
-        print(f"Cantidad de productos procesados: {self.cantidad_productos_procesados()}")
+        print(
+            f"Cantidad de productos procesados: {self.cantidad_productos_procesados()}"
+        )
         print(f"Tiempo total de simulación: {self.tiempo_total_simulacion()} segundos")
         print()
 
@@ -178,16 +180,22 @@ class Estadisticas:
             )
 
         print()
-        print(f"Tarea con mayor concentración de espera: {self.tarea_mayor_concentracion_espera()}")
+        print(
+            f"Tarea con mayor concentración de espera: {self.tarea_mayor_concentracion_espera()}"
+        )
 
         print()
         print("----- REPORTE GENERAL DE LA LÍNEA -----")
         print(f"Primer producto finalizó en: T{self.tiempo_primer_producto()}")
         print(f"Último producto finalizó en: T{self.tiempo_ultimo_producto()}")
-        print(f"Tiempo promedio de finalización: {self.tiempo_promedio_finalizacion():.2f} segundos")
+        print(
+            f"Tiempo promedio de finalización: {self.tiempo_promedio_finalizacion():.2f} segundos"
+        )
         print(f"Proceso con mayor congestionamiento: {self.proceso_mayor_congestion()}")
         print(f"Promedio de espera en tareas: {self.promedio_espera_tareas():.2f}")
-        print(f"Proceso y tarea con mayor espera: {self.proceso_y_tarea_mayor_espera()}")
+        print(
+            f"Proceso y tarea con mayor espera: {self.proceso_y_tarea_mayor_espera()}"
+        )
         print("---------------------------------------")
 
         print("==================================")
