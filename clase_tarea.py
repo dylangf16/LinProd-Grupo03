@@ -15,7 +15,7 @@ class Tarea:
         self.siguiente_tarea = None
         self.proceso = None  # asignado por Proceso al construirse
 
-        #historial para estadística
+        # historial para estadística
         self.historial_espera = []
 
     def recibir_producto(self, producto):
@@ -58,7 +58,7 @@ class Tarea:
 
     def cantidad_en_espera(self):
         return len(self.contenido_esperando)
-    
+
     def veces_con_espera(self):
         return sum(1 for ce in self.historial_espera if ce > 0)
 
