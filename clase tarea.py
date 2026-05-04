@@ -1,45 +1,66 @@
 class Tarea:
-    def __init__(self, nombre, tiempoProceso):
+    def __init__(self, nombre, tiempo_proceso):
         self.nombre = nombre
-        self.tiempoProceso = tiempoProceso  # duración en ticks
-        self.estaProcesando = False  # indica si está ocupada
-        self.contenidoEsperando = []  # lista de productos esperando
-        self.productoActual = None  # producto en proceso
-        self.ticksRestantes = 0  # tiempo que falta para terminar
-        self.siguienteTarea = None  # referencia a la siguiente tarea
+        self.tiempo_proceso = tiempo_proceso  # duración en ticks
 
-    def recibirProducto(self, producto):
-        """Recibe un producto: si está libre lo procesa, si no lo encola."""
-        if not self.estaProcesando:
-            self.productoActual = producto
-            self.estaProcesando = True
-            self.ticksRestantes = self.tiempoProceso
+        # Estado de procesamiento
+        self.esta_procesando = False
+        self.producto_actual = None
+        self.ticks_restantes = 0
+
+        # Cola FIFO de productos esperando
+        self.contenido_esperando = []
+
+        # Enlaces hacia el resto de la línea
+        self.siguiente_tarea = None
+        self.proceso = None  # asignado por Proceso al construirse
+
+    def recibir_producto(self, producto):
+        """Recibe un producto: si está libre lo procesa, si no lo encola (FIFO)."""
+        if not self.esta_procesando:
+            self._iniciar_procesamiento(producto)
         else:
-            self.contenidoEsperando.append(producto)
+            self.contenido_esperando.append(producto)
 
-    def tick(self, tiempoActual):
-        """Avanza un ciclo de tiempo en la tarea."""
-        if self.estaProcesando:
-            self.ticksRestantes -= 1
-            if self.ticksRestantes == 0:
-                # Producto terminó en esta tarea
-                producto = self.productoActual
-                self.productoActual = None
-                self.estaProcesando = False
+    def _iniciar_procesamiento(self, producto):
+        self.producto_actual = producto
+        self.esta_procesando = True
+        self.ticks_restantes = self.tiempo_proceso
+        producto.estado = "en_proceso"
 
-                # Pasar al siguiente paso
-                if self.siguienteTarea:
-                    self.siguienteTarea.recibirProducto(producto)
-        else:
-            # Si está libre y hay productos esperando, toma el primero
-            if self.contenidoEsperando:
-                siguiente = self.contenidoEsperando.pop(0)  # saca el primero
-                self.recibirProducto(siguiente)
+    def tick(self, tiempo_actual):
+        """Avanza un ciclo de tiempo. Si termina con un producto lo entrega
+        a la siguiente tarea o, si es la última del proceso, al proceso. Tras
+        quedar libre, atiende al siguiente en cola dentro del mismo tick.
+        """
+        if self.esta_procesando:
+            self.ticks_restantes -= 1
+            if self.ticks_restantes == 0:
+                producto = self.producto_actual
+                self.producto_actual = None
+                self.esta_procesando = False
 
-    def estaLibre(self):
-        """Devuelve True si la tarea no está procesando nada."""
-        return not self.estaProcesando
+                if self.siguiente_tarea is not None:
+                    self.siguiente_tarea.recibir_producto(producto)
+                elif self.proceso is not None:
+                    self.proceso.entregar_siguiente(producto, tiempo_actual)
+
+        if not self.esta_procesando and self.contenido_esperando:
+            siguiente = self.contenido_esperando.pop(0)
+            self._iniciar_procesamiento(siguiente)
+
+    def esta_libre(self):
+        return not self.esta_procesando
+
+    def cantidad_en_espera(self):
+        return len(self.contenido_esperando)
 
     def __str__(self):
-        estado = "ocupada" if self.estaProcesando else "libre"
-        return f"Tarea {self.nombre} ({estado}, cola={len(self.contenidoEsperando)})"
+        ep = "S" if self.esta_procesando else "N"
+        return (
+            f"Tarea {self.nombre} | "
+            f"TP={self.tiempo_proceso}, EP={ep}, CE={self.cantidad_en_espera()}"
+        )
+
+    def __repr__(self):
+        return self.__str__()
