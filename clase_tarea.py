@@ -62,6 +62,9 @@ class Tarea:
     def veces_con_espera(self):
         return sum(1 for ce in self.historial_espera if ce > 0)
 
+    def total_espera_acumulada(self):
+        return sum(self.historial_espera)
+
     def __str__(self):
         ep = "S" if self.esta_procesando else "N"
         return (

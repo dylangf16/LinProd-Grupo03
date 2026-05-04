@@ -14,29 +14,14 @@ class Estadisticas:
         resultados = []
 
         for proceso in self.linea.procesos:
-            productos_finalizados = [
-                producto
-                for producto in self.linea.productos
-                if producto.tiempo_salida is not None
-            ]
-
-            if productos_finalizados:
-                inicio = min(
-                    producto.tiempo_ingreso for producto in productos_finalizados
-                )
-                fin = max(producto.tiempo_salida for producto in productos_finalizados)
-                duracion = fin - inicio
-            else:
-                inicio = None
-                fin = None
-                duracion = None
-
+            espera_total = sum(
+                tarea.total_espera_acumulada() for tarea in proceso.tareas
+            )
             resultados.append(
                 {
                     "proceso": proceso.nombre,
-                    "inicio": inicio,
-                    "fin": fin,
-                    "duracion": duracion,
+                    "num_tareas": len(proceso.tareas),
+                    "espera_total": espera_total,
                 }
             )
 
@@ -104,6 +89,20 @@ class Estadisticas:
 
         return sum(tiempos) / len(tiempos)
 
+    def tiempo_total_procesamiento(self):
+        finalizados = [
+            producto
+            for producto in self.linea.productos
+            if producto.tiempo_salida is not None
+        ]
+
+        if not finalizados:
+            return 0
+
+        return sum(
+            producto.tiempo_salida - producto.tiempo_ingreso for producto in finalizados
+        )
+
     def proceso_mayor_congestion(self):
         proceso_mayor = None
         mayor_espera = -1
@@ -169,9 +168,8 @@ class Estadisticas:
         print("Procesos:")
         for datos in self.estadisticas_por_proceso():
             print(
-                f"- {datos['proceso']} inició en T{datos['inicio']}, "
-                f"finalizó en T{datos['fin']} "
-                f"y duró {datos['duracion']} segundos."
+                f"- {datos['proceso']} | Tareas: {datos['num_tareas']} | "
+                f"Espera acumulada: {datos['espera_total']} ciclos"
             )
 
         print()
@@ -192,6 +190,10 @@ class Estadisticas:
         )
         print(
             f"Proceso y tarea con mayor tiempo de espera: {self.proceso_y_tarea_mayor_espera()}"
+        )
+        print(
+            f"Tiempo total de procesamiento (suma de todos los productos): "
+            f"{self.tiempo_total_procesamiento()} segundos"
         )
         print("---------------------------------------")
 
