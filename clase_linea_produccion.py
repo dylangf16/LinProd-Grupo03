@@ -134,9 +134,7 @@ class LineaProduccion:
                 print(f"    {tarea}")
         if self.productos:
             finalizados = sum(1 for p in self.productos if p.estado == "finalizado")
-            print(
-                f"  Productos: {finalizados}/{len(self.productos)} finalizados"
-            )
+            print(f"  Productos: {finalizados}/{len(self.productos)} finalizados")
 
     def __str__(self):
         return (
