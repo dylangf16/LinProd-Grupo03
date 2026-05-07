@@ -11,9 +11,9 @@ import os
 
 import pygame
 
-from clase_linea_produccion import LineaProduccion
-from clase_proceso import Proceso
-from clase_tarea import Tarea
+from src.logic.clase_linea_produccion import LineaProduccion
+from src.logic.clase_proceso import Proceso
+from src.logic.clase_tarea import Tarea
 
 # ── Paleta ────────────────────────────────────────────────────────────────────
 BG       = (28,  28,  35)
