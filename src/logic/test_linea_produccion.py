@@ -12,16 +12,19 @@ Restricciones del PDF que se validan:
 """
 
 import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 try:
     sys.stdout.reconfigure(encoding="utf-8")
 except Exception:
     pass
 
-from clase_estadistica import Estadisticas
-from clase_linea_produccion import LineaProduccion
-from clase_proceso import Proceso
-from clase_tarea import Tarea
+from src.logic.clase_estadistica import Estadisticas
+from src.logic.clase_linea_produccion import LineaProduccion
+from src.logic.clase_proceso import Proceso
+from src.logic.clase_tarea import Tarea
 
 # ----------------------------------------------------------------------
 # Utilidades de verificacion
@@ -107,7 +110,7 @@ def correr_test(numero, descripcion, configuracion, cantidad_productos):
     linea.cargar_productos(cantidad_productos)
     linea.correr(max_ciclos=10000)
     # estadística
-    from clase_estadistica import Estadisticas
+    from src.logic.clase_estadistica import Estadisticas
 
     estadisticas = Estadisticas(linea)
     estadisticas.mostrar_resumen()
