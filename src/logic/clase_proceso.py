@@ -1,6 +1,7 @@
 class Proceso:
     def __init__(self, nombre, tareas, es_inicial=False, es_final=False):
         self.nombre = nombre
+        self.nombre_proceso = nombre
         self.tareas = tareas
         self.es_inicial = es_inicial
         self.es_final = es_final

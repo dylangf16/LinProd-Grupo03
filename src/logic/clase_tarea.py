@@ -18,6 +18,24 @@ class Tarea:
         # historial para estadística
         self.historial_espera = []
 
+    @property
+    def tiempo_procesamiento(self):
+        """Alias para cumplir requerimientos sin romper compatibilidad."""
+        return self.tiempo_proceso
+
+    @tiempo_procesamiento.setter
+    def tiempo_procesamiento(self, valor):
+        self.tiempo_proceso = valor
+
+    @property
+    def estado_ocupado(self):
+        """Alias semántico del estado de procesamiento de la tarea."""
+        return self.esta_procesando
+
+    @estado_ocupado.setter
+    def estado_ocupado(self, valor):
+        self.esta_procesando = valor
+
     def recibir_producto(self, producto):
         """Recibe un producto: si está libre lo procesa, si no lo encola (FIFO)."""
         if not self.esta_procesando:
@@ -74,3 +92,16 @@ class Tarea:
 
     def __repr__(self):
         return self.__str__()
+
+    def __getattr__(self, nombre_atributo):
+        """Delega atributos faltantes de Tarea a su Proceso padre."""
+        proceso_padre = self.__dict__.get("proceso")
+        if proceso_padre is not None:
+            try:
+                return getattr(proceso_padre, nombre_atributo)
+            except AttributeError:
+                pass
+
+        raise AttributeError(
+            f"'{self.__class__.__name__}' no tiene el atributo '{nombre_atributo}'"
+        )
