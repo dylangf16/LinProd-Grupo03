@@ -35,13 +35,6 @@ FOOT_H = 64
 PAD = 14
 SCROLL_SZ = 14
 
-VIEW_RECT = pygame.Rect(
-    PAD,
-    TOP_H + PAD,
-    WIN_W - PAD * 2 - SCROLL_SZ - 4,
-    WIN_H - (TOP_H + PAD * 2 + FOOT_H) - SCROLL_SZ,
-)
-
 PROC_W = 250
 PROC_H = 90
 PROC_GAP = 74
@@ -228,9 +221,11 @@ class SimulationWindow:
     def __init__(self, linea: LineaProduccion, cantidad_productos: int | None = None):
         pygame.init()
 
-        self.screen = pygame.display.set_mode((WIN_W, WIN_H))
+        self.screen = pygame.display.set_mode((WIN_W, WIN_H), pygame.RESIZABLE)
         pygame.display.set_caption("LinProd - Simulacion de la Linea")
         self.clock = pygame.time.Clock()
+
+        self.screen_w, self.screen_h = self.screen.get_size()
 
         self.font_h = pygame.font.SysFont("Segoe UI", 24, bold=True)
         self.font = pygame.font.SysFont("Segoe UI", 17)
@@ -241,6 +236,7 @@ class SimulationWindow:
         self.cantidad_productos = max(1, int(base_count or 1))
 
         self.running = True
+        self.next_action = "exit"
         self.playing = False
         self.cycle_ms = 460
         self.accumulator_ms = 0.0
@@ -256,23 +252,44 @@ class SimulationWindow:
         self.task_rects: dict[tuple[int, int], pygame.Rect] = {}
         self.finish_rect = pygame.Rect(0, 0, 1, 1)
 
-        self.world_w = VIEW_RECT.w
-        self.world_h = VIEW_RECT.h
+        self.view_rect = pygame.Rect(0, 0, 1, 1)
+
+        self.world_w = 1
+        self.world_h = 1
         self.world = pygame.Surface((self.world_w, self.world_h)).convert_alpha()
 
         self.hbar = ScrollBar(
-            pygame.Rect(VIEW_RECT.x, VIEW_RECT.bottom + 4, VIEW_RECT.w, SCROLL_SZ),
+            pygame.Rect(0, 0, 1, 1),
             vertical=False,
         )
         self.vbar = ScrollBar(
-            pygame.Rect(VIEW_RECT.right + 4, VIEW_RECT.y, SCROLL_SZ, VIEW_RECT.h),
+            pygame.Rect(0, 0, 1, 1),
             vertical=True,
         )
+
+        self._refresh_viewport()
 
         self._load_assets()
         self._build_controls()
         self._rebuild_layout()
         self._reset_simulation()
+
+    def _refresh_viewport(self):
+        view_w = max(320, self.screen_w - PAD * 2 - SCROLL_SZ - 4)
+        view_h = max(220, self.screen_h - (TOP_H + PAD * 2 + FOOT_H) - SCROLL_SZ)
+        self.view_rect = pygame.Rect(PAD, TOP_H + PAD, view_w, view_h)
+
+        self.hbar.rect = pygame.Rect(self.view_rect.x, self.view_rect.bottom + 4, self.view_rect.w, SCROLL_SZ)
+        self.vbar.rect = pygame.Rect(self.view_rect.right + 4, self.view_rect.y, SCROLL_SZ, self.view_rect.h)
+
+        self.hbar.set_lengths(self.world_w, self.view_rect.w)
+        self.vbar.set_lengths(self.world_h, self.view_rect.h)
+
+    def _maximize_to_monitor(self):
+        info = pygame.display.Info()
+        self.screen = pygame.display.set_mode((info.current_w, info.current_h), pygame.RESIZABLE)
+        self.screen_w, self.screen_h = self.screen.get_size()
+        self._refresh_viewport()
 
     # ----------------------------- Inicializacion ----------------------------
 
@@ -297,22 +314,19 @@ class SimulationWindow:
         x = 16
         self.btn_toggle = Button((x, y, 130, 40), "Iniciar", GOOD)
         x += 140
-        self.btn_step = Button((x, y, 100, 40), "Paso", BTN)
-        x += 110
         self.btn_reset = Button((x, y, 118, 40), "Reiniciar", BTN)
         x += 128
-        self.btn_speed_down = Button((x, y, 44, 40), "-", BTN)
-        x += 52
-        self.btn_speed_up = Button((x, y, 44, 40), "+", BTN)
-        x += 54
+        self.btn_reconfigure = Button((x, y, 140, 40), "Reconfigurar", BTN)
+        x += 150
+        self.btn_maximize = Button((x, y, 120, 40), "Maximizar", BTN)
+        x += 130
         self.btn_exit = Button((x, y, 94, 40), "Salir", BAD)
 
         self.buttons = [
             self.btn_toggle,
-            self.btn_step,
             self.btn_reset,
-            self.btn_speed_down,
-            self.btn_speed_up,
+            self.btn_reconfigure,
+            self.btn_maximize,
             self.btn_exit,
         ]
 
@@ -329,8 +343,8 @@ class SimulationWindow:
         world_w = start_x + width_line + PROC_GAP + finish_w + 80
         world_h = tasks_y + max_tareas * (TASK_H + TASK_GAP) + 90
 
-        self.world_w = max(world_w, VIEW_RECT.w)
-        self.world_h = max(world_h, VIEW_RECT.h)
+        self.world_w = max(world_w, self.view_rect.w)
+        self.world_h = max(world_h, self.view_rect.h)
         self.world = pygame.Surface((self.world_w, self.world_h)).convert_alpha()
 
         self.process_rects = []
@@ -350,8 +364,8 @@ class SimulationWindow:
         fh = max(TASK_H * 2, max_tareas * (TASK_H + TASK_GAP) - TASK_GAP)
         self.finish_rect = pygame.Rect(fx, tasks_y, finish_w, fh)
 
-        self.hbar.set_lengths(self.world_w, VIEW_RECT.w)
-        self.vbar.set_lengths(self.world_h, VIEW_RECT.h)
+        self.hbar.set_lengths(self.world_w, self.view_rect.w)
+        self.vbar.set_lengths(self.world_h, self.view_rect.h)
 
     def _reset_simulation(self):
         self.linea.reiniciar(self.cantidad_productos)
@@ -499,21 +513,18 @@ class SimulationWindow:
             self.linea.pausar()
             self.linea.imprimir_estado()
 
-    def _step(self):
-        if self.linea.todos_finalizados():
-            return
-        self.playing = False
-        self.accumulator_ms = 0.0
-        self._advance_tick()
-
-    def _change_speed(self, delta_ms: int):
-        self.cycle_ms = max(120, min(1800, self.cycle_ms + delta_ms))
-
     def _handle_events(self):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.running = False
                 return
+
+            if event.type == pygame.VIDEORESIZE:
+                self.screen_w = event.w
+                self.screen_h = event.h
+                self.screen = pygame.display.set_mode((event.w, event.h), pygame.RESIZABLE)
+                self._refresh_viewport()
+                continue
 
             if event.type == pygame.MOUSEMOTION:
                 for button in self.buttons:
@@ -526,7 +537,7 @@ class SimulationWindow:
 
             if event.type == pygame.MOUSEWHEEL:
                 mouse = pygame.mouse.get_pos()
-                if VIEW_RECT.collidepoint(mouse):
+                if self.view_rect.collidepoint(mouse):
                     mods = pygame.key.get_mods()
                     if mods & pygame.KMOD_SHIFT:
                         self.hbar.scroll_pixels(-event.y * 70)
@@ -535,36 +546,31 @@ class SimulationWindow:
 
             if self.btn_toggle.clicked(event):
                 self._toggle_play()
-            elif self.btn_step.clicked(event):
-                self._step()
             elif self.btn_reset.clicked(event):
                 self._reset_simulation()
-            elif self.btn_speed_down.clicked(event):
-                self._change_speed(+80)
-            elif self.btn_speed_up.clicked(event):
-                self._change_speed(-80)
+            elif self.btn_reconfigure.clicked(event):
+                self.next_action = "reconfigure"
+                self.running = False
+            elif self.btn_maximize.clicked(event):
+                self._maximize_to_monitor()
             elif self.btn_exit.clicked(event):
                 self.running = False
 
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_SPACE:
                     self._toggle_play()
-                elif event.key == pygame.K_RIGHT:
-                    self._step()
                 elif event.key == pygame.K_r:
                     self._reset_simulation()
-                elif event.key == pygame.K_MINUS:
-                    self._change_speed(+80)
-                elif event.key in (pygame.K_PLUS, pygame.K_EQUALS):
-                    self._change_speed(-80)
+                elif event.key == pygame.K_F11:
+                    self._maximize_to_monitor()
                 elif event.key == pygame.K_ESCAPE:
                     self.running = False
 
     # -------------------------------- Dibujo ---------------------------------
 
     def _draw_top(self):
-        pygame.draw.rect(self.screen, BG_2, (0, 0, WIN_W, TOP_H))
-        pygame.draw.line(self.screen, BORDER, (0, TOP_H - 1), (WIN_W, TOP_H - 1), 1)
+        pygame.draw.rect(self.screen, BG_2, (0, 0, self.screen_w, TOP_H))
+        pygame.draw.line(self.screen, BORDER, (0, TOP_H - 1), (self.screen_w, TOP_H - 1), 1)
 
         if self.playing:
             self.btn_toggle.label = "Pausar"
@@ -583,11 +589,11 @@ class SimulationWindow:
 
         estado = "RUN" if self.playing else "PAUSA"
         txt = self.font.render(
-            f"T={self.linea.tiempo_actual}   Estado={estado}   dt={self.cycle_ms} ms/ciclo",
+            f"T={self.linea.tiempo_actual}   Estado={estado}",
             True,
             ACCENT,
         )
-        self.screen.blit(txt, (760, 26))
+        self.screen.blit(txt, (max(16, self.screen_w - 320), 26))
 
     def _draw_world(self):
         self.world.fill(PANEL)
@@ -673,9 +679,9 @@ class SimulationWindow:
             self.world.blit(id_txt, id_txt.get_rect(center=rect.center))
 
     def _draw_footer(self):
-        y = WIN_H - FOOT_H
-        pygame.draw.rect(self.screen, BG_2, (0, y, WIN_W, FOOT_H))
-        pygame.draw.line(self.screen, BORDER, (0, y), (WIN_W, y), 1)
+        y = self.screen_h - FOOT_H
+        pygame.draw.rect(self.screen, BG_2, (0, y, self.screen_w, FOOT_H))
+        pygame.draw.line(self.screen, BORDER, (0, y), (self.screen_w, y), 1)
 
         total = len(self.linea.productos)
         fin = sum(1 for p in self.linea.productos if p.estado == "finalizado")
@@ -699,10 +705,10 @@ class SimulationWindow:
         self._draw_top()
         self._draw_world()
 
-        src = pygame.Rect(int(self.hbar.offset), int(self.vbar.offset), VIEW_RECT.w, VIEW_RECT.h)
-        self.screen.blit(self.world, VIEW_RECT.topleft, src)
+        src = pygame.Rect(int(self.hbar.offset), int(self.vbar.offset), self.view_rect.w, self.view_rect.h)
+        self.screen.blit(self.world, self.view_rect.topleft, src)
 
-        pygame.draw.rect(self.screen, BORDER, VIEW_RECT, 2)
+        pygame.draw.rect(self.screen, BORDER, self.view_rect, 2)
         self.hbar.draw(self.screen)
         self.vbar.draw(self.screen)
 
@@ -732,7 +738,7 @@ class SimulationWindow:
             self.draw()
 
         pygame.quit()
-        return self.linea
+        return self.next_action
 
 
 # ------------------------------- Ejecucion local -----------------------------
@@ -741,15 +747,18 @@ class SimulationWindow:
 def main():
     from src.interface.config_window import ConfigWindow
 
-    config = ConfigWindow()
-    linea = config.run()
-    if linea is None:
-        print("Configuracion cancelada.")
-        return None
+    while True:
+        config = ConfigWindow()
+        linea = config.run()
+        if linea is None:
+            print("Configuracion cancelada.")
+            return None
 
-    sim = SimulationWindow(linea, cantidad_productos=max(1, linea.cantidad_ingreso or 1))
-    sim.run()
-    return linea
+        sim = SimulationWindow(linea, cantidad_productos=max(1, linea.cantidad_ingreso or 1))
+        action = sim.run()
+        if action == "reconfigure":
+            continue
+        return linea
 
 
 if __name__ == "__main__":
