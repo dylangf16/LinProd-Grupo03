@@ -155,7 +155,7 @@ class ConfigWindow:
 
     def __init__(self):
         pygame.init()
-        self.screen = pygame.display.set_mode((W, H))
+        self.screen = pygame.display.set_mode((W, H), pygame.RESIZABLE)
         pygame.display.set_caption("LinProd — Configuración de Línea de Producción")
         self.clock  = pygame.time.Clock()
 
@@ -194,6 +194,7 @@ class ConfigWindow:
         self.btn_cargar    = Button((_PX + half_w + 8, _SIM_Y + 104,         half_w, BTN_H + 4), "Cargar JSON",   BTN_GR)
         self.btn_construir = Button((_PX,              _SIM_Y + 104 + BTN_H + 12, C3_W - PAD * 2, 40),
                                     "  Construir Linea de Produccion  >", BTN_G)
+        self.btn_maximizar = Button((W - 184, 9, 172, 34), "Maximizar (F11)", BTN_GR)
 
         # ── Widgets col1 / col2: botones de lista ─────────────────────────────
         c_btn_y = HDR_H + CONT_H - BTN_H - PAD   # 718
@@ -441,6 +442,12 @@ class ConfigWindow:
         t = self.font_h.render(
             "LinProd  -  Configuracion de Linea de Produccion", True, TEXT)
         self.screen.blit(t, (PAD * 2, (HDR_H - t.get_height()) // 2))
+        self.btn_maximizar.draw(self.screen, self.font_sm)
+
+    def _maximize_to_monitor(self):
+        info = pygame.display.Info()
+        self.screen = pygame.display.set_mode((info.current_w, info.current_h), pygame.RESIZABLE)
+        print("[INFO] Ventana de configuracion maximizada al monitor.")
 
     def _draw_col1(self):
         pygame.draw.rect(self.screen, PANEL, (C1_X, HDR_H, C1_W, CONT_H))
@@ -588,7 +595,7 @@ class ConfigWindow:
                 self.btn_add_tarea, self.btn_del_tarea,
                 self.btn_proc_ok,   self.btn_tarea_ok,
                 self.btn_guardar,   self.btn_cargar,
-                self.btn_construir)
+                self.btn_construir, self.btn_maximizar)
 
     def run(self) -> LineaProduccion | None:
         running = True
@@ -643,6 +650,11 @@ class ConfigWindow:
                     result = self._construir_linea()
                     if result is not None:
                         running = False
+                elif self.btn_maximizar.clicked(event):
+                    self._maximize_to_monitor()
+
+                if event.type == pygame.KEYDOWN and event.key == pygame.K_F11:
+                    self._maximize_to_monitor()
 
             self.draw()
 

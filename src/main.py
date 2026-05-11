@@ -10,20 +10,25 @@ from src.interface.simulation import SimulationWindow
 
 
 def main():
-    ventana = ConfigWindow()
-    linea = ventana.run()
-    if linea is not None:
+    while True:
+        ventana = ConfigWindow()
+        linea = ventana.run()
+        if linea is None:
+            print("Configuracion cancelada.")
+            return None
+
         print("=" * 58)
         print("LINEA LISTA para el modulo de simulacion.")
         print("=" * 58)
+
         simulador = SimulationWindow(
             linea,
             cantidad_productos=max(1, linea.cantidad_ingreso or 1),
         )
-        simulador.run()
-    else:
-        print("Configuracion cancelada.")
-    return linea
+        action = simulador.run()
+        if action == "reconfigure":
+            continue
+        return linea
 
 
 if __name__ == "__main__":
