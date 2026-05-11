@@ -3,9 +3,9 @@ Proyecto 2 del curso: CE5507 – Modelación Hardware Software Orientado a Objet
 
 ## Requisitos previos
 
-- Python 3.13.3 instalado ([descargar aquí](https://www.python.org/downloads/release/python-31313/))
+- Python 3.13.13 instalado ([descargar aquí](https://www.python.org/downloads/release/python-31313/))
 
-### Verificar instalación de Python 3.13.3
+### Verificar instalación de Python 3.13.13
 
 **Windows:**
 ```powershell

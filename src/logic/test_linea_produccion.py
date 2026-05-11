@@ -98,6 +98,30 @@ def correr_test(numero, descripcion, configuracion, cantidad_productos):
     )
     verificar(
         test,
+        "Delegacion Tarea->Proceso para es_inicial/es_final",
+        all(
+            (t.es_inicial == p.es_inicial) and (t.es_final == p.es_final)
+            for p in linea.procesos
+            for t in p.tareas
+        ),
+    )
+    verificar(
+        test,
+        "Delegacion Tarea->Proceso para nombre_proceso",
+        all(t.nombre_proceso == p.nombre_proceso for p in linea.procesos for t in p.tareas),
+    )
+    verificar(
+        test,
+        "Atributos explicitos de Tarea siguen accesibles",
+        all(
+            (t.tiempo_procesamiento == t.tiempo_proceso)
+            and (t.estado_ocupado == t.esta_procesando)
+            for p in linea.procesos
+            for t in p.tareas
+        ),
+    )
+    verificar(
+        test,
         "Tareas encadenadas en orden dentro de cada proceso",
         all(
             p.tareas[i].siguiente_tarea is p.tareas[i + 1]
