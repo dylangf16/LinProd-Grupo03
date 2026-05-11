@@ -6,6 +6,7 @@ sys.path.insert(0, str(root))
 sys.path.insert(0, str(root / "src" / "logic"))
 
 from src.interface.config_window import ConfigWindow
+from src.interface.simulation import SimulationWindow
 
 
 def main():
@@ -15,7 +16,11 @@ def main():
         print("=" * 58)
         print("LINEA LISTA para el modulo de simulacion.")
         print("=" * 58)
-        linea.imprimir_estado()
+        simulador = SimulationWindow(
+            linea,
+            cantidad_productos=max(1, linea.cantidad_ingreso or 1),
+        )
+        simulador.run()
     else:
         print("Configuracion cancelada.")
     return linea

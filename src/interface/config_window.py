@@ -8,6 +8,7 @@ Flujo:
 
 import json
 import os
+import random
 
 import pygame
 
@@ -315,7 +316,7 @@ class ConfigWindow:
             return
         tareas = self.procesos_cfg[self.sel_proc]["tareas"]
         n = len(tareas) + 1
-        tareas.append({"nombre": f"Tarea_{n}", "tiempo": 1})
+        tareas.append({"nombre": f"Tarea_{n}", "tiempo": random.randint(1, 15)})
         self.sel_tarea = len(tareas) - 1
         self._load_tarea_to_form()
         print(f"[INFO] Tarea_{n} agregada a '{self.procesos_cfg[self.sel_proc]['nombre']}'.")
@@ -405,6 +406,9 @@ class ConfigWindow:
             proceso = Proceso(pc["nombre"], tareas,
                               es_inicial=pc["es_inicial"], es_final=pc["es_final"])
             linea.agregar_proceso(proceso)
+
+        # Conserva la cantidad configurada para reutilizarla en la simulacion.
+        linea.cantidad_ingreso = cantidad
 
         sep = "-" * 58
         print(sep)
