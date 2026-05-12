@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import os
+import random
 from pathlib import Path
 
 import pygame
@@ -582,6 +583,24 @@ class ConfigWindow:
     def _sum_task_time(self, proc_cfg: dict) -> int:
         return sum(int(t.get("tiempo", 0)) for t in proc_cfg.get("tareas", []))
 
+    def _next_process_default_name(self) -> str:
+        used_names = {str(p.get("nombre", "")).strip() for p in self.procesos_cfg}
+        num = 1
+        while f"Proceso_{num}" in used_names:
+            num += 1
+        return f"Proceso_{num}"
+
+    def _next_task_default_name(self) -> str:
+        used_names = {str(t.get("nombre", "")).strip() for t in self.modal_tasks}
+        num = 1
+        while f"Tarea_{num}" in used_names:
+            num += 1
+        return f"Tarea_{num}"
+
+    def _seed_modal_task_defaults(self):
+        self.modal_task_name.text = self._next_task_default_name()
+        self.modal_task_time.text = str(random.randint(1, 15))
+
     def _guardar_json(self):
         data = {
             "procesos": self.procesos_cfg,
@@ -660,7 +679,7 @@ class ConfigWindow:
         if index is None:
             default_initial = len(self.procesos_cfg) == 0
             proc_cfg = {
-                "nombre": "",
+                "nombre": self._next_process_default_name(),
                 "es_inicial": default_initial,
                 "es_final": False,
                 "tareas": [],
@@ -678,11 +697,10 @@ class ConfigWindow:
             }
 
         self.modal_proc_name.text = proc_cfg["nombre"]
-        self.modal_task_name.text = ""
-        self.modal_task_time.text = ""
         self.modal_chk_initial.checked = bool(proc_cfg["es_inicial"])
         self.modal_chk_final.checked = bool(proc_cfg["es_final"])
         self.modal_tasks = proc_cfg["tareas"]
+        self._seed_modal_task_defaults()
 
         self.modal_proc_name.active = False
         self.modal_task_name.active = False
@@ -712,8 +730,7 @@ class ConfigWindow:
             return
 
         self.modal_tasks.append({"nombre": name, "tiempo": tiempo})
-        self.modal_task_name.text = ""
-        self.modal_task_time.text = ""
+        self._seed_modal_task_defaults()
         self.modal_error = ""
 
     def _modal_validate_flags(self, data: dict) -> bool:
