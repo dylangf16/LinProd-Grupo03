@@ -9,8 +9,8 @@ Flujo:
 from __future__ import annotations
 
 import json
-import os
 import random
+import atexit
 from pathlib import Path
 
 import pygame
@@ -323,7 +323,9 @@ class HorizontalScrollBar:
 
 
 class ConfigWindow:
-    CONFIG_FILE = "configuracion_linea.json"
+    SETUP_DIR = Path(__file__).resolve().parent.parent / "prod_line_setup"
+    CONFIG_FILE = SETUP_DIR / "configuracion_linea.json"
+    CURRENT_FILE = SETUP_DIR / "current_lin_prod.json"
 
     TEAM_MEMBERS = [
         "Nahomi Cordero - 2021052766",
@@ -381,6 +383,8 @@ class ConfigWindow:
         self.modal_error = ""
         self.modal_task_scroll = 0.0
         self.modal_task_delete_hitboxes: list[tuple[int, pygame.Rect]] = []
+        self.modal_task_item_hitboxes: list[tuple[int, pygame.Rect]] = []
+        self.modal_task_edit_index: int | None = None
 
         self.modal_proc_name = TextInput((0, 0, 100, 56), placeholder="Placeholder text here...", max_len=40)
         self.modal_task_name = TextInput((0, 0, 100, 56), placeholder="Placeholder text here...", max_len=40)
@@ -393,6 +397,8 @@ class ConfigWindow:
         self.btn_modal_apply = PillButton((0, 0, 134, 47), "Aplicar", BLUE_ACTION, WHITE)
 
         self.linea_resultado: LineaProduccion | None = None
+
+        self._bootstrap_config_files()
 
         print("[INFO] Sistema iniciado. Configura tu linea de produccion.")
 
@@ -583,6 +589,64 @@ class ConfigWindow:
     def _sum_task_time(self, proc_cfg: dict) -> int:
         return sum(int(t.get("tiempo", 0)) for t in proc_cfg.get("tareas", []))
 
+    def _normalize_unique_flags(self):
+        seen_initial = False
+        seen_final = False
+        for proc in self.procesos_cfg:
+            if proc.get("es_inicial"):
+                if seen_initial:
+                    proc["es_inicial"] = False
+                else:
+                    seen_initial = True
+
+            if proc.get("es_final"):
+                if seen_final:
+                    proc["es_final"] = False
+                else:
+                    seen_final = True
+
+    def _ordered_cfg_for_build(self) -> list[dict]:
+        initial = next((p for p in self.procesos_cfg if p.get("es_inicial")), None)
+        final = next((p for p in self.procesos_cfg if p.get("es_final")), None)
+
+        if initial is None or final is None:
+            return list(self.procesos_cfg)
+
+        ordered: list[dict] = [initial]
+        for proc in self.procesos_cfg:
+            if proc is initial or proc is final:
+                continue
+            ordered.append(proc)
+
+        if final is not initial:
+            ordered.append(final)
+
+        return ordered
+
+    def _visual_process_order_indices(self) -> list[int]:
+        initial_idx = next(
+            (i for i, p in enumerate(self.procesos_cfg) if p.get("es_inicial")),
+            None,
+        )
+        final_idx = next(
+            (i for i, p in enumerate(self.procesos_cfg) if p.get("es_final")),
+            None,
+        )
+
+        ordered: list[int] = []
+        if initial_idx is not None:
+            ordered.append(initial_idx)
+
+        for i in range(len(self.procesos_cfg)):
+            if i == initial_idx or i == final_idx:
+                continue
+            ordered.append(i)
+
+        if final_idx is not None and final_idx != initial_idx:
+            ordered.append(final_idx)
+
+        return ordered
+
     def _next_process_default_name(self) -> str:
         used_names = {str(p.get("nombre", "")).strip() for p in self.procesos_cfg}
         num = 1
@@ -601,29 +665,99 @@ class ConfigWindow:
         self.modal_task_name.text = self._next_task_default_name()
         self.modal_task_time.text = str(random.randint(1, 15))
 
-    def _guardar_json(self):
-        data = {
+    @classmethod
+    def _cleanup_current_file(cls):
+        try:
+            if cls.CURRENT_FILE.exists():
+                cls.CURRENT_FILE.unlink()
+                print(f"[INFO] Archivo temporal eliminado: '{cls.CURRENT_FILE.as_posix()}'.")
+        except Exception as exc:
+            print(f"[WARN] No se pudo eliminar '{cls.CURRENT_FILE.as_posix()}': {exc}")
+
+    def _set_task_add_mode(self, reseed: bool):
+        self.modal_task_edit_index = None
+        self.btn_modal_add_task.label = "Añadir tarea"
+        if reseed:
+            self._seed_modal_task_defaults()
+
+    def _toggle_task_edit_mode(self, task_index: int):
+        if not (0 <= task_index < len(self.modal_tasks)):
+            return
+
+        if self.modal_task_edit_index == task_index:
+            self._set_task_add_mode(reseed=True)
+            return
+
+        task = self.modal_tasks[task_index]
+        self.modal_task_edit_index = task_index
+        self.btn_modal_add_task.label = "Editar tarea"
+        self.modal_task_name.text = str(task.get("nombre", "")).strip()
+        self.modal_task_time.text = str(int(task.get("tiempo", 1)))
+
+    def _current_data_payload(self) -> dict:
+        return {
             "procesos": self.procesos_cfg,
             "cantidad_ingreso": int(self.inp_cantidad.text or 0),
         }
-        with open(self.CONFIG_FILE, "w", encoding="utf-8") as f:
+
+    def _write_config_file(self, path: Path, data: dict, label: str):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
-        print(f"[INFO] Configuracion guardada en '{self.CONFIG_FILE}'.")
+        print(f"[INFO] {label} guardada en '{path.as_posix()}'.")
 
-    def _cargar_json(self):
-        if not os.path.exists(self.CONFIG_FILE):
-            print(f"[ERROR] Archivo '{self.CONFIG_FILE}' no encontrado.")
-            return
-
-        with open(self.CONFIG_FILE, encoding="utf-8") as f:
-            data = json.load(f)
-
+    def _load_data_into_ui(self, data: dict):
         self.procesos_cfg = data.get("procesos", [])
+        self._normalize_unique_flags()
         cantidad = data.get("cantidad_ingreso", 0)
         self.inp_cantidad.text = str(cantidad) if cantidad else ""
-
         self.cards_scroll = 0.0
         self.cards_scrollbar.offset = 0.0
+
+    def _read_config_file(self, path: Path, label: str) -> dict | None:
+        if not path.exists():
+            return None
+        try:
+            with path.open(encoding="utf-8") as f:
+                data = json.load(f)
+            if not isinstance(data, dict):
+                print(f"[ERROR] {label} invalida: se esperaba un objeto JSON.")
+                return None
+            if "procesos" not in data:
+                data["procesos"] = []
+            if "cantidad_ingreso" not in data:
+                data["cantidad_ingreso"] = 0
+            return data
+        except Exception as exc:
+            print(f"[ERROR] No se pudo leer {label} '{path.as_posix()}': {exc}")
+            return None
+
+    def _bootstrap_config_files(self):
+        self.SETUP_DIR.mkdir(parents=True, exist_ok=True)
+
+        data = self._read_config_file(self.CURRENT_FILE, "configuracion actual")
+        if data is not None:
+            self._load_data_into_ui(data)
+            return
+
+        empty_data = {"procesos": [], "cantidad_ingreso": 0}
+        self._load_data_into_ui(empty_data)
+        self._write_config_file(self.CURRENT_FILE, empty_data, "Configuracion actual")
+
+    def _guardar_json(self):
+        data = self._current_data_payload()
+        self._write_config_file(self.CONFIG_FILE, data, "Configuracion")
+        self._write_config_file(self.CURRENT_FILE, data, "Configuracion actual")
+
+    def _cargar_json(self):
+        data = self._read_config_file(self.CONFIG_FILE, "configuracion guardada")
+        if data is None:
+            print(f"[ERROR] Archivo '{self.CONFIG_FILE.as_posix()}' no encontrado o invalido.")
+            return
+
+        self._load_data_into_ui(data)
+        self._write_config_file(self.CURRENT_FILE, self._current_data_payload(), "Configuracion actual")
+        cantidad = data.get("cantidad_ingreso", 0)
         print(f"[INFO] Cargados {len(self.procesos_cfg)} proceso(s), cantidad={cantidad}.")
 
     def _construir_linea(self) -> LineaProduccion | None:
@@ -641,6 +775,10 @@ class ConfigWindow:
             print(f"[ERROR] Se requiere exactamente 1 proceso final (hay {len(finales)}).")
             return None
 
+        if len(self.procesos_cfg) > 1 and iniciales[0] is finales[0]:
+            print("[ERROR] Inicial y final deben ser procesos distintos si hay más de un proceso.")
+            return None
+
         for pc in self.procesos_cfg:
             if not pc.get("tareas"):
                 print(f"[ERROR] El proceso '{pc['nombre']}' no tiene tareas.")
@@ -656,7 +794,8 @@ class ConfigWindow:
             cantidad = int(cant_s)
 
         linea = LineaProduccion("Linea Configurada")
-        for pc in self.procesos_cfg:
+        cfg_ordenada = self._ordered_cfg_for_build()
+        for pc in cfg_ordenada:
             tareas = [Tarea(t["nombre"], int(t["tiempo"])) for t in pc["tareas"]]
             proceso = Proceso(
                 pc["nombre"],
@@ -667,6 +806,7 @@ class ConfigWindow:
             linea.agregar_proceso(proceso)
 
         linea.cantidad_ingreso = cantidad
+        self._write_config_file(self.CURRENT_FILE, self._current_data_payload(), "Configuracion actual")
         self.linea_resultado = linea
         return linea
 
@@ -700,7 +840,7 @@ class ConfigWindow:
         self.modal_chk_initial.checked = bool(proc_cfg["es_inicial"])
         self.modal_chk_final.checked = bool(proc_cfg["es_final"])
         self.modal_tasks = proc_cfg["tareas"]
-        self._seed_modal_task_defaults()
+        self._set_task_add_mode(reseed=True)
 
         self.modal_proc_name.active = False
         self.modal_task_name.active = False
@@ -709,6 +849,7 @@ class ConfigWindow:
     def _close_modal(self):
         self.modal_open = False
         self.modal_error = ""
+        self._set_task_add_mode(reseed=False)
         self.modal_proc_name.active = False
         self.modal_task_name.active = False
         self.modal_task_time.active = False
@@ -729,20 +870,32 @@ class ConfigWindow:
             self.modal_error = "El tiempo de tarea debe ser un entero >= 1."
             return
 
-        self.modal_tasks.append({"nombre": name, "tiempo": tiempo})
-        self._seed_modal_task_defaults()
+        task_data = {"nombre": name, "tiempo": tiempo}
+
+        if self.modal_task_edit_index is not None:
+            idx = self.modal_task_edit_index
+            if 0 <= idx < len(self.modal_tasks):
+                self.modal_tasks[idx] = task_data
+            else:
+                self.modal_tasks.append(task_data)
+            self._set_task_add_mode(reseed=True)
+            self.modal_error = ""
+            return
+
+        self.modal_tasks.append(task_data)
+        self._set_task_add_mode(reseed=True)
         self.modal_error = ""
 
     def _modal_validate_flags(self, data: dict) -> bool:
+        # Mantiene unicidad en pantalla: si se marca este proceso como
+        # inicial/final, se desmarca en los demás automáticamente.
         for idx, proc in enumerate(self.procesos_cfg):
             if self.modal_edit_index is not None and idx == self.modal_edit_index:
                 continue
-            if data["es_inicial"] and proc.get("es_inicial"):
-                self.modal_error = "Ya existe un proceso marcado como inicial."
-                return False
-            if data["es_final"] and proc.get("es_final"):
-                self.modal_error = "Ya existe un proceso marcado como final."
-                return False
+            if data["es_inicial"]:
+                proc["es_inicial"] = False
+            if data["es_final"]:
+                proc["es_final"] = False
         return True
 
     def _modal_apply(self):
@@ -892,9 +1045,11 @@ class ConfigWindow:
         card_w = max(260, int(card_h * 0.78))
         gap = max(14, int(24 * self.ui_scale))
 
+        visual_indices = self._visual_process_order_indices()
+
         total = 0
-        if self.procesos_cfg:
-            total = len(self.procesos_cfg) * (card_w + gap) - gap
+        if visual_indices:
+            total = len(visual_indices) * (card_w + gap) - gap
 
         self.cards_scrollbar.set_rect(scroll_rect)
         self.cards_scrollbar.set_lengths(max(1, total), max(1, cards_clip.w))
@@ -905,14 +1060,15 @@ class ConfigWindow:
         prev_clip = self.screen.get_clip()
         self.screen.set_clip(cards_clip)
 
-        for idx, proc_cfg in enumerate(self.procesos_cfg):
-            x_in_content = total - card_w - idx * (card_w + gap)
+        for visual_idx, proc_idx in enumerate(visual_indices):
+            proc_cfg = self.procesos_cfg[proc_idx]
+            x_in_content = visual_idx * (card_w + gap)
             draw_x = cards_clip.x + int(x_in_content - self.cards_scroll)
             draw_rect = pygame.Rect(draw_x, cards_clip.y + 4, card_w, card_h)
 
             if draw_rect.right < cards_clip.left - 10 or draw_rect.left > cards_clip.right + 10:
                 continue
-            self._draw_process_card(idx, proc_cfg, draw_rect)
+            self._draw_process_card(proc_idx, proc_cfg, draw_rect)
 
         self.screen.set_clip(prev_clip)
 
@@ -1005,6 +1161,7 @@ class ConfigWindow:
         self.modal_task_scroll = max(0.0, min(self.modal_task_scroll, max_scroll))
 
         self.modal_task_delete_hitboxes = []
+        self.modal_task_item_hitboxes = []
         prev_clip = self.screen.get_clip()
         self.screen.set_clip(list_clip)
 
@@ -1014,13 +1171,14 @@ class ConfigWindow:
             if item_rect.bottom < list_clip.top - 2 or item_rect.top > list_clip.bottom + 2:
                 continue
 
+            selected = i == self.modal_task_edit_index
             _draw_smooth_rounded_rect(
                 self.screen,
                 item_rect,
                 WHITE,
                 12,
-                border_color=CARD_BORDER,
-                border_width=1,
+                border_color=BLUE_ACTION if selected else CARD_BORDER,
+                border_width=2 if selected else 1,
             )
 
             ic_r = max(18, int(24 * self.ui_scale))
@@ -1046,6 +1204,7 @@ class ConfigWindow:
             if d_icon is not None:
                 self.screen.blit(d_icon, d_icon.get_rect(center=d_rect.center))
 
+            self.modal_task_item_hitboxes.append((i, item_rect.copy()))
             self.modal_task_delete_hitboxes.append((i, d_rect))
 
         self.screen.set_clip(prev_clip)
@@ -1153,6 +1312,17 @@ class ConfigWindow:
             for idx, drect in self.modal_task_delete_hitboxes:
                 if drect.collidepoint(event.pos):
                     self.modal_tasks.pop(idx)
+                    if self.modal_task_edit_index is not None:
+                        if self.modal_task_edit_index == idx:
+                            self._set_task_add_mode(reseed=True)
+                        elif self.modal_task_edit_index > idx:
+                            self.modal_task_edit_index -= 1
+                    self.modal_error = ""
+                    return
+
+            for idx, irect in self.modal_task_item_hitboxes:
+                if irect.collidepoint(event.pos):
+                    self._toggle_task_edit_mode(idx)
                     self.modal_error = ""
                     return
 
@@ -1234,6 +1404,9 @@ class ConfigWindow:
 
         pygame.quit()
         return self.linea_resultado
+
+
+atexit.register(ConfigWindow._cleanup_current_file)
 
 
 def main():
