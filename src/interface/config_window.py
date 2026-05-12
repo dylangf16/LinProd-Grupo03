@@ -1,401 +1,586 @@
 """
-config_window.py  —  Interfaz gráfica de configuración de la línea de producción.
+config_window.py  -  Interfaz visual de configuracion para la linea de produccion.
 
 Flujo:
     ventana = ConfigWindow()
-    linea   = ventana.run()   # retorna LineaProduccion lista o None si se canceló
+    linea = ventana.run()  # retorna LineaProduccion lista o None si se cancela
 """
+
+from __future__ import annotations
 
 import json
 import os
-import random
+from pathlib import Path
 
 import pygame
+import pygame.gfxdraw
 
 from src.logic.clase_linea_produccion import LineaProduccion
 from src.logic.clase_proceso import Proceso
 from src.logic.clase_tarea import Tarea
 
-# ── Paleta ────────────────────────────────────────────────────────────────────
-BG = (28, 28, 35)
-PANEL = (40, 40, 50)
-PANEL2 = (50, 50, 62)
-BORDER = (75, 75, 90)
-SEP_COL = (60, 60, 75)
-TEXT = (220, 220, 220)
-TEXT_DIM = (130, 130, 145)
-SEL_BG = (70, 100, 200)
-BTN_G = (55, 150, 70)
-BTN_R = (190, 55, 55)
-BTN_B = (45, 120, 195)
-BTN_GR = (85, 85, 98)
-ACCENT = (255, 200, 50)
-INP_BG = (35, 35, 45)
-INP_ACT = (48, 55, 78)
 
-# ── Dimensiones ───────────────────────────────────────────────────────────────
-W, H = 1200, 760
-HDR_H = 52
-C1_W = 285
-C2_W = 345
-C3_W = W - C1_W - C2_W  # 570
-CONT_H = H - HDR_H  # 708
-
-C1_X = 0
-C2_X = C1_W
-C3_X = C1_W + C2_W
-
-ROW_H = 36
-BTN_H = 30
-PAD = 12
-
-# Posiciones fijas de la columna 3
-_PX = C3_X + PAD  # x base: 632
-_PY = HDR_H + PAD * 2  # y inicio props: 76  (más holgura bajo el header)
-_SIM_Y = 330  # y inicio sección parámetros de simulación
+def _hex_to_rgb(value: str) -> tuple[int, int, int]:
+    value = value.strip().lstrip("#")
+    return (int(value[0:2], 16), int(value[2:4], 16), int(value[4:6], 16))
 
 
-# ── Primitivos UI ─────────────────────────────────────────────────────────────
+def _boost(color: tuple[int, int, int], amount: int = 12) -> tuple[int, int, int]:
+    return tuple(min(255, c + amount) for c in color)
 
 
-class Button:
-    def __init__(self, rect, label, color=BTN_GR):
+def _draw_smooth_rounded_rect(
+    surf: pygame.Surface,
+    rect: pygame.Rect,
+    color: tuple[int, int, int] | tuple[int, int, int, int],
+    radius: int,
+    border_color: tuple[int, int, int] | tuple[int, int, int, int] | None = None,
+    border_width: int = 0,
+):
+    if rect.w <= 0 or rect.h <= 0:
+        return
+
+    pygame.draw.rect(surf, color, rect, border_radius=radius)
+    if border_color is not None and border_width > 0:
+        pygame.draw.rect(surf, border_color, rect, border_width, border_radius=radius)
+
+
+def _draw_smooth_circle(
+    surf: pygame.Surface,
+    center: tuple[int, int],
+    radius: int,
+    color: tuple[int, int, int] | tuple[int, int, int, int],
+    border_color: tuple[int, int, int] | tuple[int, int, int, int] | None = None,
+    border_width: int = 0,
+):
+    if radius <= 0:
+        return
+
+    cx, cy = int(center[0]), int(center[1])
+    r = int(radius)
+
+    pygame.gfxdraw.filled_circle(surf, cx, cy, r, color)
+    pygame.gfxdraw.aacircle(surf, cx, cy, r, color)
+
+    if border_color is not None and border_width > 0:
+        pygame.draw.circle(surf, border_color, (cx, cy), r, border_width)
+        pygame.gfxdraw.aacircle(surf, cx, cy, r, border_color)
+
+
+PAGE_BG = _hex_to_rgb("F5F5F7")
+WHITE = (255, 255, 255)
+TEXT_DARK = _hex_to_rgb("2C2C2C")
+TEXT_MID = _hex_to_rgb("3B3B3B")
+TEXT_SOFT = _hex_to_rgb("565656")
+TEXT_HINT = _hex_to_rgb("979797")
+INPUT_BORDER = _hex_to_rgb("D9D9D9")
+INPUT_BG = _hex_to_rgb("F6F6F6")
+
+BLUE_PRIMARY = _hex_to_rgb("11309F")
+BLUE_ACTION = _hex_to_rgb("2952E1")
+BLUE_PILL = _hex_to_rgb("1F3FAF")
+BLUE_SOFT = _hex_to_rgb("D0DEF5")
+BLUE_CARD = _hex_to_rgb("B7CDF2")
+BLUE_GLOW = _hex_to_rgb("2F56DF")
+
+CARD_BG = _hex_to_rgb("FAFBFF")
+CARD_BORDER = _hex_to_rgb("E0E8F7")
+CARD_BORDER_HOVER = _hex_to_rgb("BFD0F1")
+CARD_IMAGE_BG = _hex_to_rgb("D9D9D9")
+
+WIN_W = 1360
+WIN_H = 820
+
+
+class PillButton:
+    def __init__(
+        self,
+        rect: tuple[int, int, int, int],
+        label: str,
+        fill: tuple[int, int, int],
+        text_color: tuple[int, int, int],
+        border: tuple[int, int, int] | None = None,
+        radius: int = 999,
+    ):
         self.rect = pygame.Rect(rect)
         self.label = label
-        self.color = color
-        self._hover = False
+        self.fill = fill
+        self.text_color = text_color
+        self.border = border
+        self.radius = radius
+        self.hover = False
 
-    def draw(self, surf, font):
-        c = tuple(min(255, v + 28) for v in self.color) if self._hover else self.color
-        pygame.draw.rect(surf, c, self.rect, border_radius=5)
-        pygame.draw.rect(surf, BORDER, self.rect, 1, border_radius=5)
-        t = font.render(self.label, True, TEXT)
-        surf.blit(t, t.get_rect(center=self.rect.center))
+    def set_rect(self, rect: pygame.Rect):
+        self.rect = pygame.Rect(rect)
 
-    def update_hover(self, pos):
-        self._hover = self.rect.collidepoint(pos)
+    def update_hover(self, pos: tuple[int, int]):
+        self.hover = self.rect.collidepoint(pos)
 
-    def clicked(self, event):
+    def clicked(self, event: pygame.event.Event) -> bool:
         return (
             event.type == pygame.MOUSEBUTTONDOWN
             and event.button == 1
             and self.rect.collidepoint(event.pos)
         )
 
+    def draw(self, surf: pygame.Surface, font: pygame.font.Font):
+        color = _boost(self.fill, 10) if self.hover else self.fill
+        _draw_smooth_rounded_rect(
+            surf,
+            self.rect,
+            color,
+            self.radius,
+            border_color=self.border,
+            border_width=1 if self.border is not None else 0,
+        )
+        txt = font.render(self.label, True, self.text_color)
+        surf.blit(txt, txt.get_rect(center=self.rect.center))
+
 
 class TextInput:
-    def __init__(self, rect, placeholder="", numeric=False, max_len=40):
+    def __init__(
+        self,
+        rect: tuple[int, int, int, int],
+        placeholder: str = "",
+        numeric: bool = False,
+        max_len: int = 40,
+    ):
         self.rect = pygame.Rect(rect)
-        self.ph = placeholder
+        self.placeholder = placeholder
         self.numeric = numeric
         self.max_len = max_len
         self.text = ""
         self.active = False
-        self._ct = 0
-        self._cv = True
 
-    def draw(self, surf, font):
-        bg = INP_ACT if self.active else INP_BG
-        bc = SEL_BG if self.active else BORDER
-        pygame.draw.rect(surf, bg, self.rect, border_radius=4)
-        pygame.draw.rect(surf, bc, self.rect, 1, border_radius=4)
-        disp = self.text if self.text else self.ph
-        color = TEXT if self.text else TEXT_DIM
-        t = font.render(disp, True, color)
-        surf.blit(
-            t, (self.rect.x + 8, self.rect.y + (self.rect.h - t.get_height()) // 2)
-        )
-        if self.active and self._cv:
-            cx = self.rect.x + 8 + font.size(self.text)[0]
-            pygame.draw.line(
-                surf, TEXT, (cx, self.rect.y + 5), (cx, self.rect.bottom - 5), 2
-            )
+        self._cursor_timer = 0
+        self._cursor_visible = True
 
-    def update(self, dt):
-        self._ct += dt
-        if self._ct >= 500:
-            self._cv = not self._cv
-            self._ct = 0
+    def set_rect(self, rect: pygame.Rect):
+        self.rect = pygame.Rect(rect)
 
-    def handle(self, event):
+    def update(self, dt_ms: int):
+        self._cursor_timer += dt_ms
+        if self._cursor_timer >= 520:
+            self._cursor_visible = not self._cursor_visible
+            self._cursor_timer = 0
+
+    def handle(self, event: pygame.event.Event):
         if event.type == pygame.MOUSEBUTTONDOWN:
             self.active = self.rect.collidepoint(event.pos)
+
         if event.type == pygame.KEYDOWN and self.active:
             if event.key == pygame.K_BACKSPACE:
                 self.text = self.text[:-1]
-            elif event.key in (pygame.K_RETURN, pygame.K_TAB, pygame.K_ESCAPE):
+                return
+            if event.key in (pygame.K_TAB, pygame.K_ESCAPE):
                 self.active = False
-            elif len(self.text) < self.max_len:
-                ch = event.unicode
-                if self.numeric and not ch.isdigit():
-                    return
-                self.text += ch
+                return
+            if event.key == pygame.K_RETURN:
+                return
+
+            if len(self.text) >= self.max_len:
+                return
+
+            char = event.unicode
+            if not char:
+                return
+            if self.numeric and not char.isdigit():
+                return
+            self.text += char
+
+    def draw(self, surf: pygame.Surface, font: pygame.font.Font):
+        border = BLUE_ACTION if self.active else INPUT_BORDER
+        _draw_smooth_rounded_rect(
+            surf,
+            self.rect,
+            INPUT_BG,
+            9,
+            border_color=border,
+            border_width=1,
+        )
+
+        render_text = self.text if self.text else self.placeholder
+        color = TEXT_MID if self.text else TEXT_HINT
+        text_surf = font.render(render_text, True, color)
+        text_pos = (
+            self.rect.x + 18,
+            self.rect.y + (self.rect.h - text_surf.get_height()) // 2,
+        )
+        surf.blit(text_surf, text_pos)
+
+        if self.active and self._cursor_visible:
+            cx = self.rect.x + 18 + font.size(self.text)[0]
+            y1 = self.rect.y + 10
+            y2 = self.rect.bottom - 10
+            pygame.draw.line(surf, TEXT_MID, (cx, y1), (cx, y2), 2)
 
 
-class Checkbox:
-    def __init__(self, x, y, label):
-        self.rect = pygame.Rect(x, y, 20, 20)
+class CircleToggle:
+    def __init__(self, x: int, y: int, label: str):
+        self.circle = pygame.Rect(x, y, 28, 28)
         self.label = label
         self.checked = False
 
-    def draw(self, surf, font):
-        pygame.draw.rect(surf, INP_BG, self.rect, border_radius=3)
-        pygame.draw.rect(surf, BORDER, self.rect, 1, border_radius=3)
-        if self.checked:
-            pygame.draw.rect(surf, SEL_BG, self.rect.inflate(-5, -5), border_radius=2)
-        t = font.render(self.label, True, TEXT)
-        surf.blit(t, (self.rect.right + 7, self.rect.centery - t.get_height() // 2))
+    def set_pos(self, x: int, y: int):
+        self.circle.topleft = (x, y)
 
-    def handle(self, event):
+    def handle(self, event: pygame.event.Event) -> bool:
         if (
             event.type == pygame.MOUSEBUTTONDOWN
             and event.button == 1
-            and self.rect.collidepoint(event.pos)
+            and self.circle.collidepoint(event.pos)
         ):
             self.checked = not self.checked
             return True
         return False
 
+    def draw(self, surf: pygame.Surface, font: pygame.font.Font):
+        _draw_smooth_circle(surf, self.circle.center, 14, WHITE, border_color=TEXT_HINT, border_width=3)
+        if self.checked:
+            _draw_smooth_circle(surf, self.circle.center, 7, BLUE_ACTION)
+        text = font.render(self.label, True, TEXT_MID)
+        surf.blit(text, (self.circle.right + 14, self.circle.y + 1))
 
-# ── Ventana de configuración ──────────────────────────────────────────────────
+
+class HorizontalScrollBar:
+    def __init__(self, rect: pygame.Rect):
+        self.rect = pygame.Rect(rect)
+        self.content_len = 1
+        self.viewport_len = 1
+        self.offset = 0.0
+
+        self.dragging = False
+        self.drag_mouse_origin = 0
+        self.drag_offset_origin = 0.0
+
+    @property
+    def max_offset(self) -> float:
+        return max(0.0, float(self.content_len - self.viewport_len))
+
+    def set_rect(self, rect: pygame.Rect):
+        self.rect = pygame.Rect(rect)
+
+    def set_lengths(self, content_len: int, viewport_len: int):
+        self.content_len = max(1, int(content_len))
+        self.viewport_len = max(1, int(viewport_len))
+        self.offset = max(0.0, min(self.offset, self.max_offset))
+
+    def scroll_pixels(self, delta: float):
+        if self.max_offset <= 0:
+            self.offset = 0.0
+            return
+        self.offset = max(0.0, min(self.max_offset, self.offset + delta))
+
+    def _thumb_rect(self) -> pygame.Rect:
+        track_len = self.rect.w
+        ratio = 1.0 if self.content_len <= self.viewport_len else self.viewport_len / self.content_len
+
+        thumb_len = max(34, int(track_len * ratio))
+        travel = track_len - thumb_len
+
+        if self.max_offset <= 0 or travel <= 0:
+            thumb_pos = 0
+        else:
+            thumb_pos = int((self.offset / self.max_offset) * travel)
+
+        return pygame.Rect(self.rect.x + thumb_pos, self.rect.y, thumb_len, self.rect.h)
+
+    def handle(self, event: pygame.event.Event) -> bool:
+        thumb = self._thumb_rect()
+
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            if thumb.collidepoint(event.pos):
+                self.dragging = True
+                self.drag_mouse_origin = event.pos[0]
+                self.drag_offset_origin = self.offset
+                return True
+            if self.rect.collidepoint(event.pos):
+                ratio = (event.pos[0] - self.rect.x) / max(1, self.rect.w)
+                self.offset = max(0.0, min(self.max_offset, ratio * self.max_offset))
+                return True
+
+        if event.type == pygame.MOUSEBUTTONUP and event.button == 1 and self.dragging:
+            self.dragging = False
+            return True
+
+        if event.type == pygame.MOUSEMOTION and self.dragging:
+            delta = event.pos[0] - self.drag_mouse_origin
+            travel = max(1, self.rect.w - thumb.w)
+            if self.max_offset > 0:
+                self.offset = max(
+                    0.0,
+                    min(self.max_offset, self.drag_offset_origin + delta * self.max_offset / travel),
+                )
+            return True
+
+        return False
+
+    def draw(self, surf: pygame.Surface):
+        _draw_smooth_rounded_rect(surf, self.rect, _hex_to_rgb("D9E1F3"), 5)
+        thumb = self._thumb_rect()
+        _draw_smooth_rounded_rect(surf, thumb, _hex_to_rgb("9FB3E2"), 6)
 
 
 class ConfigWindow:
     CONFIG_FILE = "configuracion_linea.json"
 
+    TEAM_MEMBERS = [
+        "Nahomi Cordero - 2021052766",
+        "Melany Cordero - 2021527387",
+        "Dylan Garbanzo - 2021057775",
+        "Enrique Moraga - 2020195501",
+        "Gabriela Salazar - 2020048408",
+    ]
+
     def __init__(self):
         pygame.init()
-        self.screen = pygame.display.set_mode((W, H), pygame.RESIZABLE)
-        pygame.display.set_caption("LinProd — Configuración de Línea de Producción")
+        self.screen = pygame.display.set_mode((WIN_W, WIN_H), pygame.RESIZABLE)
+        pygame.display.set_caption("LinProd - Configuracion de Linea de Produccion")
         self.clock = pygame.time.Clock()
 
-        self.font_h = pygame.font.SysFont("Segoe UI", 24, bold=True)
-        self.font = pygame.font.SysFont("Segoe UI", 18)
-        self.font_sm = pygame.font.SysFont("Segoe UI", 15)
+        self.assets_dir = Path(__file__).resolve().parent / "assets"
+        self.header_bg = self._load_image("Pantalla Configuración/Header de Pantalla Configuración.png")
+        self.icons_raw: dict[str, pygame.Surface | None] = {
+            "edit": self._load_image("Iconos/Icon editar.png"),
+            "delete": self._load_image("Iconos/Icon eliminar.png"),
+            "task": self._load_image("Iconos/Icon imagen.png"),
+            "inicio": self._load_image("Iconos/Icon Inicio.png"),
+            "intermedio": self._load_image("Iconos/Icon intermedio.png"),
+            "final": self._load_image("Iconos/Icon final.png"),
+        }
+        self.icons_scaled: dict[tuple[str, int], pygame.Surface] = {}
 
-        # Estado: lista de dicts {nombre, es_inicial, es_final, tareas:[{nombre,tiempo}]}
+        self._font_key: float | None = None
+        self.ui_scale = 1.0
+        self.font_title = pygame.font.SysFont("Segoe UI", 32, bold=True)
+        self.font_subtitle = pygame.font.SysFont("Segoe UI", 20)
+        self.font_h1 = pygame.font.SysFont("Segoe UI", 30, bold=True)
+        self.font_h2 = pygame.font.SysFont("Segoe UI", 24, bold=True)
+        self.font_body = pygame.font.SysFont("Segoe UI", 18)
+        self.font_small = pygame.font.SysFont("Segoe UI", 15)
+        self.font_tiny = pygame.font.SysFont("Segoe UI", 13)
+        self._refresh_fonts()
+
         self.procesos_cfg: list[dict] = []
-        self.sel_proc: int | None = None
-        self.sel_tarea: int | None = None
+        self.cards_scroll = 0.0
+        self.cards_scrollbar = HorizontalScrollBar(pygame.Rect(0, 0, 1, 1))
+        self.card_hitboxes: list[dict] = []
+        self.hover_card_index: int | None = None
 
-        # ── Widgets col3: propiedades de proceso ──────────────────────────────
-        # Offsets desde _PY: título(0) → label(+20) → input(+36) → checks(+82) → btn(+112)
-        self.inp_proc_nombre = TextInput(
-            (_PX, _PY + 58, C3_W - PAD * 2, 32), placeholder="Nombre del proceso"
-        )
-        self.chk_inicial = Checkbox(_PX, _PY + 110, "Proceso Inicial")
-        self.chk_final = Checkbox(_PX + 180, _PY + 110, "Proceso Final")
-        self.btn_proc_ok = Button((_PX, _PY + 148, 130, BTN_H + 4), "Aplicar", BTN_B)
+        self.inp_cantidad = TextInput((0, 0, 140, 48), placeholder="# productos", numeric=True, max_len=4)
 
-        # ── Widgets col3: propiedades de tarea ───────────────────────────────
-        # Misma zona que proceso (se muestran de forma alternada)
-        # Offsets desde _PY: título(0) → label(+20) → input(+36) → label(+82) → input(+98) → btn(+144)
-        self.inp_tarea_nombre = TextInput(
-            (_PX, _PY + 58, C3_W - PAD * 2, 32), placeholder="Nombre de la tarea"
-        )
-        self.inp_tarea_tiempo = TextInput(
-            (_PX, _PY + 130, 120, 32), placeholder="Ciclos", numeric=True, max_len=5
-        )
-        self.btn_tarea_ok = Button((_PX, _PY + 180, 130, BTN_H + 4), "Aplicar", BTN_B)
+        self.btn_add_proc = PillButton((0, 0, 300, 52), "+ Añadir proceso", BLUE_PILL, WHITE)
+        self.btn_start = PillButton((0, 0, 300, 52), "Iniciar simulación", BLUE_PILL, WHITE)
+        self.btn_save = PillButton((0, 0, 130, 44), "Guardar JSON", BLUE_SOFT, BLUE_ACTION, border=BLUE_SOFT)
+        self.btn_load = PillButton((0, 0, 130, 44), "Cargar JSON", BLUE_SOFT, BLUE_ACTION, border=BLUE_SOFT)
 
-        # ── Widgets col3: parámetros de simulación (posición fija) ───────────
-        # Offsets desde _SIM_Y: título(0) → label(+18) → input(+34) → acciones(+80) → construir(+118)
-        half_w = (C3_W - PAD * 2 - 8) // 2
-        self.inp_cantidad = TextInput(
-            (_PX, _SIM_Y + 52, 130, 32),
-            placeholder="# productos",
-            numeric=True,
-            max_len=4,
-        )
-        self.btn_guardar = Button(
-            (_PX, _SIM_Y + 104, half_w, BTN_H + 4), "Guardar JSON", BTN_GR
-        )
-        self.btn_cargar = Button(
-            (_PX + half_w + 8, _SIM_Y + 104, half_w, BTN_H + 4), "Cargar JSON", BTN_GR
-        )
-        self.btn_construir = Button(
-            (_PX, _SIM_Y + 104 + BTN_H + 12, C3_W - PAD * 2, 40),
-            "  Construir Linea de Produccion  >",
-            BTN_G,
-        )
-        self.btn_maximizar = Button((W - 184, 9, 172, 34), "Maximizar (F11)", BTN_GR)
+        self.modal_open = False
+        self.modal_edit_index: int | None = None
+        self.modal_tasks: list[dict] = []
+        self.modal_error = ""
+        self.modal_task_scroll = 0.0
+        self.modal_task_delete_hitboxes: list[tuple[int, pygame.Rect]] = []
 
-        # ── Widgets col1 / col2: botones de lista ─────────────────────────────
-        c_btn_y = HDR_H + CONT_H - BTN_H - PAD  # 718
-        qw = (C1_W - PAD * 2 - 12) // 4
-        self.btn_add_proc = Button((C1_X + PAD, c_btn_y, qw, BTN_H), "+", BTN_G)
-        self.btn_del_proc = Button(
-            (C1_X + PAD + (qw + 4), c_btn_y, qw, BTN_H), "-", BTN_R
-        )
-        self.btn_up_proc = Button(
-            (C1_X + PAD + (qw + 4) * 2, c_btn_y, qw, BTN_H), "^", BTN_GR
-        )
-        self.btn_dn_proc = Button(
-            (C1_X + PAD + (qw + 4) * 3, c_btn_y, qw, BTN_H), "v", BTN_GR
-        )
+        self.modal_proc_name = TextInput((0, 0, 100, 56), placeholder="Placeholder text here...", max_len=40)
+        self.modal_task_name = TextInput((0, 0, 100, 56), placeholder="Placeholder text here...", max_len=40)
+        self.modal_task_time = TextInput((0, 0, 100, 56), placeholder="Placeholder text here...", numeric=True, max_len=5)
 
-        hw = (C2_W - PAD * 2 - 8) // 2
-        self.btn_add_tarea = Button((C2_X + PAD, c_btn_y, hw, BTN_H), "+ Tarea", BTN_G)
-        self.btn_del_tarea = Button(
-            (C2_X + PAD + hw + 8, c_btn_y, hw, BTN_H), "- Tarea", BTN_R
-        )
+        self.modal_chk_initial = CircleToggle(0, 0, "Proceso inicial")
+        self.modal_chk_final = CircleToggle(0, 0, "Proceso final")
+
+        self.btn_modal_add_task = PillButton((0, 0, 208, 47), "Añadir tarea", BLUE_SOFT, BLUE_ACTION, border=BLUE_SOFT)
+        self.btn_modal_apply = PillButton((0, 0, 134, 47), "Aplicar", BLUE_ACTION, WHITE)
 
         self.linea_resultado: LineaProduccion | None = None
 
         print("[INFO] Sistema iniciado. Configura tu linea de produccion.")
 
-    # ── Modo de la columna 3 ──────────────────────────────────────────────────
+    def _load_image(self, relative_path: str) -> pygame.Surface | None:
+        full = self.assets_dir / relative_path
+        if not full.exists():
+            return None
+        try:
+            return pygame.image.load(str(full)).convert_alpha()
+        except pygame.error:
+            return None
 
-    def _props_mode(self):
-        """'task' si hay tarea seleccionada, 'process' si solo proceso, 'none' si nada."""
-        if self.sel_proc is not None and self.sel_tarea is not None:
-            return "task"
-        if self.sel_proc is not None:
-            return "process"
-        return "none"
+    def _get_icon(self, name: str, size: int) -> pygame.Surface | None:
+        key = (name, size)
+        cached = self.icons_scaled.get(key)
+        if cached is not None:
+            return cached
 
-    # ── Carga de formularios ──────────────────────────────────────────────────
+        base = self.icons_raw.get(name)
+        if base is None:
+            return None
 
-    def _load_proc_to_form(self):
-        if self.sel_proc is None:
+        scaled = pygame.transform.smoothscale(base, (size, size))
+        self.icons_scaled[key] = scaled
+        return scaled
+
+    def _refresh_fonts(self):
+        w, h = self.screen.get_size()
+        self.ui_scale = max(0.72, min(1.35, min(w / WIN_W, h / WIN_H)))
+        key = round(self.ui_scale, 3)
+        if self._font_key == key:
             return
-        p = self.procesos_cfg[self.sel_proc]
-        self.inp_proc_nombre.text = p["nombre"]
-        self.chk_inicial.checked = p["es_inicial"]
-        self.chk_final.checked = p["es_final"]
+        self._font_key = key
 
-    def _load_tarea_to_form(self):
-        if self.sel_proc is None or self.sel_tarea is None:
-            return
-        t = self.procesos_cfg[self.sel_proc]["tareas"][self.sel_tarea]
-        self.inp_tarea_nombre.text = t["nombre"]
-        self.inp_tarea_tiempo.text = str(t["tiempo"])
+        def fs(base: int, min_size: int = 12) -> int:
+            return max(min_size, int(base * self.ui_scale))
 
-    # ── Acciones: procesos ────────────────────────────────────────────────────
+        self.font_title = pygame.font.SysFont("Segoe UI", fs(44, 26), bold=True)
+        self.font_subtitle = pygame.font.SysFont("Segoe UI", fs(30, 20), bold=False)
+        self.font_h1 = pygame.font.SysFont("Segoe UI", fs(23, 17), bold=True)
+        self.font_h2 = pygame.font.SysFont("Segoe UI", fs(18, 14), bold=True)
+        self.font_body = pygame.font.SysFont("Segoe UI", fs(15, 12), bold=False)
+        self.font_small = pygame.font.SysFont("Segoe UI", fs(13, 10), bold=False)
+        self.font_tiny = pygame.font.SysFont("Segoe UI", fs(11, 9), bold=False)
 
-    def _add_proceso(self):
-        n = len(self.procesos_cfg) + 1
-        self.procesos_cfg.append(
-            {
-                "nombre": f"Proceso_{n}",
-                "es_inicial": n == 1,
-                "es_final": False,
-                "tareas": [],
-            }
+        self.icons_scaled.clear()
+
+    def _layout(self) -> dict[str, pygame.Rect | tuple[int, int]]:
+        w, h = self.screen.get_size()
+
+        margin_x = max(28, int(w * 0.03))
+        top_margin = max(10, int(h * 0.02))
+
+        header_h = max(132, int(h * 0.27))
+        header_rect = pygame.Rect(margin_x, top_margin, max(560, w - 2 * margin_x), header_h)
+
+        content_top = header_rect.bottom + max(18, int(h * 0.02))
+
+        btn_h = max(44, int(50 * self.ui_scale))
+        bottom_pad = max(18, int(0.025 * h))
+        btn_gap = max(12, int(16 * self.ui_scale))
+
+        start_w = max(200, int(282 * self.ui_scale))
+        add_w = max(220, int(282 * self.ui_scale))
+
+        start_rect = pygame.Rect(w - margin_x - start_w, h - bottom_pad - btn_h, start_w, btn_h)
+        add_rect = pygame.Rect(start_rect.x - btn_gap - add_w, start_rect.y, add_w, btn_h)
+
+        qty_w = max(128, int(138 * self.ui_scale))
+        qty_rect = pygame.Rect(margin_x, start_rect.y + 1, qty_w, btn_h - 2)
+        save_rect = pygame.Rect(qty_rect.right + 12, start_rect.y, max(124, int(136 * self.ui_scale)), btn_h)
+        load_rect = pygame.Rect(save_rect.right + 10, start_rect.y, max(124, int(136 * self.ui_scale)), btn_h)
+
+        cards_top = content_top + max(26, int(18 * self.ui_scale))
+        cards_bottom = start_rect.y - max(22, int(24 * self.ui_scale))
+
+        cards_view = pygame.Rect(
+            margin_x,
+            cards_top,
+            max(640, w - 2 * margin_x),
+            max(130, cards_bottom - cards_top),
         )
-        self.sel_proc = len(self.procesos_cfg) - 1
-        self.sel_tarea = None
-        self._load_proc_to_form()
-        print(f"[INFO] Proceso_{n} creado.")
+        cards_clip = pygame.Rect(cards_view.x, cards_view.y, cards_view.w, max(90, cards_view.h - 20))
+        scroll_rect = pygame.Rect(cards_view.x, cards_view.bottom - 8, cards_view.w, 8)
 
-    def _del_proceso(self):
-        if self.sel_proc is None:
-            return
-        nombre = self.procesos_cfg[self.sel_proc]["nombre"]
-        self.procesos_cfg.pop(self.sel_proc)
-        self.sel_proc = (
-            min(self.sel_proc, len(self.procesos_cfg) - 1)
-            if self.procesos_cfg
-            else None
-        )
-        self.sel_tarea = None
-        if self.sel_proc is not None:
-            self._load_proc_to_form()
-        else:
-            self.inp_proc_nombre.text = ""
-            self.chk_inicial.checked = False
-            self.chk_final.checked = False
-        print(f"[INFO] Proceso '{nombre}' eliminado.")
-
-    def _move_proc(self, delta: int):
-        if self.sel_proc is None:
-            return
-        j = self.sel_proc + delta
-        if 0 <= j < len(self.procesos_cfg):
-            cfg = self.procesos_cfg
-            cfg[self.sel_proc], cfg[j] = cfg[j], cfg[self.sel_proc]
-            self.sel_proc = j
-            print(f"[INFO] Proceso movido a posicion {j + 1}.")
-
-    def _apply_proc(self):
-        if self.sel_proc is None:
-            return
-        nombre = self.inp_proc_nombre.text.strip()
-        if not nombre:
-            print("[ERROR] El nombre del proceso no puede estar vacio.")
-            return
-        self.procesos_cfg[self.sel_proc]["nombre"] = nombre
-        print(f"[INFO] Nombre del proceso actualizado a '{nombre}'.")
-
-    def _auto_save_flags(self):
-        """Guarda inmediatamente el estado de los checkboxes al toggelearlos."""
-        if self.sel_proc is None:
-            return
-        for i, p in enumerate(self.procesos_cfg):
-            if i == self.sel_proc:
-                continue
-            if self.chk_inicial.checked and p["es_inicial"]:
-                print(f"[ERROR] Ya existe un proceso INICIAL: '{p['nombre']}'.")
-                self.chk_inicial.checked = False
-                return
-            if self.chk_final.checked and p["es_final"]:
-                print(f"[ERROR] Ya existe un proceso FINAL: '{p['nombre']}'.")
-                self.chk_final.checked = False
-                return
-        p = self.procesos_cfg[self.sel_proc]
-        p["es_inicial"] = self.chk_inicial.checked
-        p["es_final"] = self.chk_final.checked
-        print(
-            f"[INFO] '{p['nombre']}': INICIAL={p['es_inicial']}, FINAL={p['es_final']}"
+        modal_margin_x = max(20, int(w * 0.03))
+        modal_margin_y = max(22, int(h * 0.035))
+        modal_rect = pygame.Rect(
+            modal_margin_x,
+            modal_margin_y,
+            max(760, w - 2 * modal_margin_x),
+            max(520, h - 2 * modal_margin_y),
         )
 
-    # ── Acciones: tareas ──────────────────────────────────────────────────────
+        return {
+            "header": header_rect,
+            "count_pos": (margin_x, content_top),
+            "cards_clip": cards_clip,
+            "cards_scroll": scroll_rect,
+            "add_btn": add_rect,
+            "start_btn": start_rect,
+            "qty_input": qty_rect,
+            "save_btn": save_rect,
+            "load_btn": load_rect,
+            "modal": modal_rect,
+        }
 
-    def _add_tarea(self):
-        if self.sel_proc is None:
-            print("[WARN] Selecciona un proceso primero.")
-            return
-        tareas = self.procesos_cfg[self.sel_proc]["tareas"]
-        n = len(tareas) + 1
-        tareas.append({"nombre": f"Tarea_{n}", "tiempo": random.randint(1, 15)})
-        self.sel_tarea = len(tareas) - 1
-        self._load_tarea_to_form()
-        print(
-            f"[INFO] Tarea_{n} agregada a '{self.procesos_cfg[self.sel_proc]['nombre']}'."
+    def _modal_layout(self, panel: pygame.Rect) -> dict[str, pygame.Rect | tuple[int, int]]:
+        pad_x = max(34, int(66 * self.ui_scale))
+        top = panel.y + max(26, int(46 * self.ui_scale))
+
+        left_x = panel.x + pad_x
+        left_w = int(panel.w * 0.43)
+
+        right_x = left_x + left_w + max(24, int(40 * self.ui_scale))
+        right_w = panel.right - right_x - max(30, int(44 * self.ui_scale))
+
+        if right_w < 220:
+            shrink = 220 - right_w
+            left_w = max(320, left_w - shrink)
+            right_x = left_x + left_w + max(20, int(26 * self.ui_scale))
+            right_w = panel.right - right_x - max(24, int(34 * self.ui_scale))
+
+        proc_input = pygame.Rect(left_x, top + max(48, int(58 * self.ui_scale)), left_w, max(44, int(56 * self.ui_scale)))
+        checks_y = proc_input.bottom + max(18, int(24 * self.ui_scale))
+
+        task_name = pygame.Rect(left_x, checks_y + max(100, int(108 * self.ui_scale)), left_w, max(44, int(56 * self.ui_scale)))
+        task_time = pygame.Rect(left_x, task_name.bottom + max(70, int(84 * self.ui_scale)), left_w, max(44, int(56 * self.ui_scale)))
+
+        add_task_btn = pygame.Rect(
+            left_x + (left_w - max(180, int(208 * self.ui_scale))) // 2,
+            task_time.bottom + max(52, int(66 * self.ui_scale)),
+            max(180, int(208 * self.ui_scale)),
+            max(40, int(47 * self.ui_scale)),
         )
 
-    def _del_tarea(self):
-        if self.sel_proc is None or self.sel_tarea is None:
-            return
-        tareas = self.procesos_cfg[self.sel_proc]["tareas"]
-        nombre = tareas[self.sel_tarea]["nombre"]
-        tareas.pop(self.sel_tarea)
-        self.sel_tarea = min(self.sel_tarea, len(tareas) - 1) if tareas else None
-        if self.sel_tarea is not None:
-            self._load_tarea_to_form()
-        else:
-            self.inp_tarea_nombre.text = ""
-            self.inp_tarea_tiempo.text = ""
-        print(f"[INFO] Tarea '{nombre}' eliminada.")
+        apply_btn = pygame.Rect(
+            panel.right - max(138, int(172 * self.ui_scale)),
+            panel.bottom - max(52, int(72 * self.ui_scale)),
+            max(122, int(134 * self.ui_scale)),
+            max(40, int(47 * self.ui_scale)),
+        )
 
-    def _apply_tarea(self):
-        if self.sel_proc is None or self.sel_tarea is None:
-            return
-        nombre = self.inp_tarea_nombre.text.strip()
-        t_str = self.inp_tarea_tiempo.text.strip()
-        if not nombre:
-            print("[ERROR] El nombre de la tarea no puede estar vacio.")
-            return
-        if not t_str or int(t_str) < 1:
-            print("[ERROR] El tiempo de proceso debe ser un entero >= 1.")
-            return
-        tarea = self.procesos_cfg[self.sel_proc]["tareas"][self.sel_tarea]
-        tarea["nombre"] = nombre
-        tarea["tiempo"] = int(t_str)
-        proc = self.procesos_cfg[self.sel_proc]["nombre"]
-        print(f"[INFO] Tarea '{nombre}' (TP={tarea['tiempo']}) guardada en '{proc}'.")
+        tasks_title = (right_x, top + max(2, int(8 * self.ui_scale)))
+        list_clip = pygame.Rect(
+            right_x,
+            top + max(46, int(66 * self.ui_scale)),
+            right_w,
+            max(120, panel.bottom - top - max(120, int(190 * self.ui_scale))),
+        )
 
-    # ── Acciones: JSON y construcción ─────────────────────────────────────────
+        return {
+            "proc_input": proc_input,
+            "checks_y": checks_y,
+            "task_name": task_name,
+            "task_time": task_time,
+            "add_task_btn": add_task_btn,
+            "apply_btn": apply_btn,
+            "tasks_title": tasks_title,
+            "list_clip": list_clip,
+        }
+
+    def _trim_text(self, text: str, font: pygame.font.Font, max_width: int) -> str:
+        if font.size(text)[0] <= max_width:
+            return text
+        while text and font.size(text + "...")[0] > max_width:
+            text = text[:-1]
+        return (text + "...") if text else ""
+
+    def _process_type_label(self, proc_cfg: dict) -> str:
+        ini = bool(proc_cfg.get("es_inicial"))
+        fin = bool(proc_cfg.get("es_final"))
+        if ini and fin:
+            return "Proceso inicial / final"
+        if ini:
+            return "Proceso inicial"
+        if fin:
+            return "Proceso final"
+        return "Proceso intermedio"
+
+    def _process_icon_name(self, proc_cfg: dict) -> str:
+        if proc_cfg.get("es_inicial"):
+            return "inicio"
+        if proc_cfg.get("es_final"):
+            return "final"
+        return "intermedio"
+
+    def _sum_task_time(self, proc_cfg: dict) -> int:
+        return sum(int(t.get("tiempo", 0)) for t in proc_cfg.get("tareas", []))
 
     def _guardar_json(self):
         data = {
@@ -410,351 +595,610 @@ class ConfigWindow:
         if not os.path.exists(self.CONFIG_FILE):
             print(f"[ERROR] Archivo '{self.CONFIG_FILE}' no encontrado.")
             return
+
         with open(self.CONFIG_FILE, encoding="utf-8") as f:
             data = json.load(f)
+
         self.procesos_cfg = data.get("procesos", [])
         cantidad = data.get("cantidad_ingreso", 0)
         self.inp_cantidad.text = str(cantidad) if cantidad else ""
-        self.sel_proc = 0 if self.procesos_cfg else None
-        self.sel_tarea = None
-        if self.sel_proc is not None:
-            self._load_proc_to_form()
-        print(
-            f"[INFO] Cargados {len(self.procesos_cfg)} proceso(s), cantidad={cantidad}."
-        )
+
+        self.cards_scroll = 0.0
+        self.cards_scrollbar.offset = 0.0
+        print(f"[INFO] Cargados {len(self.procesos_cfg)} proceso(s), cantidad={cantidad}.")
 
     def _construir_linea(self) -> LineaProduccion | None:
         if not self.procesos_cfg:
             print("[ERROR] No hay procesos definidos.")
             return None
-        iniciales = [p for p in self.procesos_cfg if p["es_inicial"]]
-        finales = [p for p in self.procesos_cfg if p["es_final"]]
+
+        iniciales = [p for p in self.procesos_cfg if p.get("es_inicial")]
+        finales = [p for p in self.procesos_cfg if p.get("es_final")]
+
         if len(iniciales) != 1:
-            print(
-                f"[ERROR] Se requiere exactamente 1 proceso inicial (hay {len(iniciales)})."
-            )
+            print(f"[ERROR] Se requiere exactamente 1 proceso inicial (hay {len(iniciales)}).")
             return None
         if len(finales) != 1:
-            print(
-                f"[ERROR] Se requiere exactamente 1 proceso final (hay {len(finales)})."
-            )
+            print(f"[ERROR] Se requiere exactamente 1 proceso final (hay {len(finales)}).")
             return None
+
         for pc in self.procesos_cfg:
-            if not pc["tareas"]:
+            if not pc.get("tareas"):
                 print(f"[ERROR] El proceso '{pc['nombre']}' no tiene tareas.")
                 return None
+
         cant_s = self.inp_cantidad.text.strip()
-        if not cant_s or int(cant_s) < 1:
-            print("[ERROR] La cantidad de productos debe ser un entero >= 1.")
-            return None
-        cantidad = int(cant_s)
+        if not cant_s:
+            cantidad = 1
+        else:
+            if int(cant_s) < 1:
+                print("[ERROR] La cantidad de productos debe ser un entero >= 1.")
+                return None
+            cantidad = int(cant_s)
 
         linea = LineaProduccion("Linea Configurada")
         for pc in self.procesos_cfg:
-            tareas = [Tarea(t["nombre"], t["tiempo"]) for t in pc["tareas"]]
+            tareas = [Tarea(t["nombre"], int(t["tiempo"])) for t in pc["tareas"]]
             proceso = Proceso(
                 pc["nombre"],
                 tareas,
-                es_inicial=pc["es_inicial"],
-                es_final=pc["es_final"],
+                es_inicial=bool(pc.get("es_inicial")),
+                es_final=bool(pc.get("es_final")),
             )
             linea.agregar_proceso(proceso)
 
-        # Conserva la cantidad configurada para reutilizarla en la simulacion.
         linea.cantidad_ingreso = cantidad
-
-        sep = "-" * 58
-        print(sep)
-        print(f"LineaProduccion '{linea.nombre}' construida exitosamente.")
-        print(f"  Procesos ({len(linea.procesos)}) en orden:")
-        for idx, p in enumerate(linea.procesos):
-            flags = []
-            if p.es_inicial:
-                flags.append("INICIAL")
-            if p.es_final:
-                flags.append("FINAL")
-            flag_s = f"  [{', '.join(flags)}]" if flags else ""
-            ant = linea.procesos[idx - 1].nombre if idx > 0 else "ninguno"
-            sig = (
-                linea.procesos[idx + 1].nombre
-                if idx + 1 < len(linea.procesos)
-                else "ninguno"
-            )
-            print(
-                f"    [{idx + 1}] {p.nombre}{flag_s}  anterior={ant}  siguiente={sig}"
-            )
-            for j, t in enumerate(p.tareas):
-                print(
-                    f"        tarea[{j + 1}] {t.nombre}  TP={t.tiempo_proceso} ciclos"
-                )
-        print(f"  Proceso inicial : {linea.get_proceso_inicial().nombre}")
-        print(f"  Proceso final   : {linea.get_proceso_final().nombre}")
-        print(f"  Productos a ingresar: {cantidad}")
-        print(sep)
-        linea.imprimir_estado()
-
         self.linea_resultado = linea
         return linea
 
-    # ── Dibujo ────────────────────────────────────────────────────────────────
+    def _open_process_modal(self, index: int | None):
+        self.modal_open = True
+        self.modal_error = ""
+        self.modal_task_scroll = 0.0
+        self.modal_edit_index = index
 
-    def _draw_header(self):
-        pygame.draw.rect(self.screen, (22, 22, 32), (0, 0, W, HDR_H))
-        pygame.draw.line(self.screen, BORDER, (0, HDR_H - 1), (W, HDR_H - 1), 1)
-        t = self.font_h.render(
-            "LinProd  -  Configuracion de Linea de Produccion", True, TEXT
-        )
-        self.screen.blit(t, (PAD * 2, (HDR_H - t.get_height()) // 2))
-        self.btn_maximizar.draw(self.screen, self.font_sm)
-
-    def _maximize_to_monitor(self):
-        info = pygame.display.Info()
-        self.screen = pygame.display.set_mode(
-            (info.current_w, info.current_h), pygame.RESIZABLE
-        )
-        print("[INFO] Ventana de configuracion maximizada al monitor.")
-
-    def _draw_col1(self):
-        pygame.draw.rect(self.screen, PANEL, (C1_X, HDR_H, C1_W, CONT_H))
-        pygame.draw.line(self.screen, BORDER, (C1_W, HDR_H), (C1_W, H), 1)
-
-        self.screen.blit(
-            self.font_sm.render("PROCESOS", True, ACCENT), (C1_X + PAD, HDR_H + 6)
-        )
-
-        list_top = HDR_H + PAD + 18
-        mouse_pos = pygame.mouse.get_pos()
-        for i, pc in enumerate(self.procesos_cfg):
-            row = pygame.Rect(C1_X + 4, list_top + i * (ROW_H + 2), C1_W - 8, ROW_H)
-            if i == self.sel_proc:
-                pygame.draw.rect(self.screen, SEL_BG, row, border_radius=4)
-            elif row.collidepoint(mouse_pos):
-                pygame.draw.rect(self.screen, PANEL2, row, border_radius=4)
-            flags = (" [I]" if pc["es_inicial"] else "") + (
-                " [F]" if pc["es_final"] else ""
-            )
-            t = self.font_sm.render(f"{i + 1}. {pc['nombre']}{flags}", True, TEXT)
-            self.screen.blit(t, (C1_X + PAD, row.y + (ROW_H - t.get_height()) // 2))
-
-        for btn in (
-            self.btn_add_proc,
-            self.btn_del_proc,
-            self.btn_up_proc,
-            self.btn_dn_proc,
-        ):
-            btn.draw(self.screen, self.font_sm)
-
-    def _draw_col2(self):
-        pygame.draw.rect(self.screen, PANEL2, (C2_X, HDR_H, C2_W, CONT_H))
-        pygame.draw.line(self.screen, BORDER, (C2_X + C2_W, HDR_H), (C2_X + C2_W, H), 1)
-
-        proc_nombre = (
-            self.procesos_cfg[self.sel_proc]["nombre"]
-            if self.sel_proc is not None
-            else "(selecciona proceso)"
-        )
-        self.screen.blit(
-            self.font_sm.render(f"TAREAS  -  {proc_nombre}", True, ACCENT),
-            (C2_X + PAD, HDR_H + 6),
-        )
-
-        list_top = HDR_H + PAD + 18
-        mouse_pos = pygame.mouse.get_pos()
-        if self.sel_proc is not None:
-            for i, tc in enumerate(self.procesos_cfg[self.sel_proc]["tareas"]):
-                row = pygame.Rect(C2_X + 4, list_top + i * (ROW_H + 2), C2_W - 8, ROW_H)
-                if i == self.sel_tarea:
-                    pygame.draw.rect(self.screen, SEL_BG, row, border_radius=4)
-                elif row.collidepoint(mouse_pos):
-                    pygame.draw.rect(self.screen, PANEL, row, border_radius=4)
-                t = self.font_sm.render(
-                    f"{i + 1}. {tc['nombre']}  (TP={tc['tiempo']})", True, TEXT
-                )
-                self.screen.blit(t, (C2_X + PAD, row.y + (ROW_H - t.get_height()) // 2))
-
-        for btn in (self.btn_add_tarea, self.btn_del_tarea):
-            btn.draw(self.screen, self.font_sm)
-
-    def _draw_col3(self):
-        pygame.draw.rect(self.screen, PANEL, (C3_X, HDR_H, C3_W, CONT_H))
-
-        def lbl(text, y, dim=False):
-            t = self.font_sm.render(text, True, TEXT_DIM if dim else ACCENT)
-            self.screen.blit(t, (_PX, y))
-
-        def sep(y):
-            pygame.draw.line(self.screen, SEP_COL, (_PX, y), (C3_X + C3_W - PAD, y), 1)
-
-        mode = self._props_mode()
-
-        # ── Sección condicional (proceso O tarea) ─────────────────────────────
-        if mode == "process":
-            lbl("PROPIEDADES DEL PROCESO", _PY)
-            lbl("Nombre:", _PY + 36, dim=True)
-            self.inp_proc_nombre.draw(self.screen, self.font)
-            self.chk_inicial.draw(self.screen, self.font_sm)
-            self.chk_final.draw(self.screen, self.font_sm)
-            self.btn_proc_ok.draw(self.screen, self.font_sm)
-
-        elif mode == "task":
-            lbl("PROPIEDADES DE LA TAREA", _PY)
-            lbl("Nombre:", _PY + 36, dim=True)
-            self.inp_tarea_nombre.draw(self.screen, self.font)
-            lbl("Tiempo de proceso (ciclos):", _PY + 108, dim=True)
-            self.inp_tarea_tiempo.draw(self.screen, self.font)
-            self.btn_tarea_ok.draw(self.screen, self.font_sm)
-
+        if index is None:
+            default_initial = len(self.procesos_cfg) == 0
+            proc_cfg = {
+                "nombre": "",
+                "es_inicial": default_initial,
+                "es_final": False,
+                "tareas": [],
+            }
         else:
-            hint = self.font_sm.render("Selecciona un proceso o tarea.", True, TEXT_DIM)
-            self.screen.blit(hint, (_PX, _PY))
+            proc = self.procesos_cfg[index]
+            proc_cfg = {
+                "nombre": str(proc.get("nombre", "")),
+                "es_inicial": bool(proc.get("es_inicial")),
+                "es_final": bool(proc.get("es_final")),
+                "tareas": [
+                    {"nombre": str(t.get("nombre", "")), "tiempo": int(t.get("tiempo", 1))}
+                    for t in proc.get("tareas", [])
+                ],
+            }
 
-        # ── Sección fija: parámetros de simulación ────────────────────────────
-        sep(_SIM_Y - 18)
-        lbl("PARAMETROS DE SIMULACION", _SIM_Y)
-        lbl("Cantidad de productos a ingresar:", _SIM_Y + 32, dim=True)
-        self.inp_cantidad.draw(self.screen, self.font)
-        self.btn_guardar.draw(self.screen, self.font_sm)
-        self.btn_cargar.draw(self.screen, self.font_sm)
-        self.btn_construir.draw(self.screen, self.font_sm)
+        self.modal_proc_name.text = proc_cfg["nombre"]
+        self.modal_task_name.text = ""
+        self.modal_task_time.text = ""
+        self.modal_chk_initial.checked = bool(proc_cfg["es_inicial"])
+        self.modal_chk_final.checked = bool(proc_cfg["es_final"])
+        self.modal_tasks = proc_cfg["tareas"]
 
-    def draw(self):
-        self.screen.fill(BG)
-        self._draw_header()
-        self._draw_col1()
-        self._draw_col2()
-        self._draw_col3()
-        pygame.display.flip()
+        self.modal_proc_name.active = False
+        self.modal_task_name.active = False
+        self.modal_task_time.active = False
 
-    # ── Clics en listas ───────────────────────────────────────────────────────
+    def _close_modal(self):
+        self.modal_open = False
+        self.modal_error = ""
+        self.modal_proc_name.active = False
+        self.modal_task_name.active = False
+        self.modal_task_time.active = False
 
-    def _handle_list_clicks(self, event):
-        if event.type != pygame.MOUSEBUTTONDOWN or event.button != 1:
+    def _modal_add_task(self):
+        name = self.modal_task_name.text.strip()
+        time_s = self.modal_task_time.text.strip()
+
+        if not name:
+            self.modal_error = "El nombre de la tarea no puede estar vacio."
             return
-        list_top = HDR_H + PAD + 18
+        if not time_s:
+            self.modal_error = "El tiempo de tarea debe ser un entero >= 1."
+            return
 
-        for i in range(len(self.procesos_cfg)):
-            row = pygame.Rect(C1_X + 4, list_top + i * (ROW_H + 2), C1_W - 8, ROW_H)
-            if row.collidepoint(event.pos):
-                if self.sel_proc != i:
-                    self.sel_proc = i
-                    self.sel_tarea = None
-                    self._load_proc_to_form()
-                    print(
-                        f"[INFO] Proceso '{self.procesos_cfg[i]['nombre']}' seleccionado."
-                    )
+        tiempo = int(time_s)
+        if tiempo < 1:
+            self.modal_error = "El tiempo de tarea debe ser un entero >= 1."
+            return
+
+        self.modal_tasks.append({"nombre": name, "tiempo": tiempo})
+        self.modal_task_name.text = ""
+        self.modal_task_time.text = ""
+        self.modal_error = ""
+
+    def _modal_validate_flags(self, data: dict) -> bool:
+        for idx, proc in enumerate(self.procesos_cfg):
+            if self.modal_edit_index is not None and idx == self.modal_edit_index:
+                continue
+            if data["es_inicial"] and proc.get("es_inicial"):
+                self.modal_error = "Ya existe un proceso marcado como inicial."
+                return False
+            if data["es_final"] and proc.get("es_final"):
+                self.modal_error = "Ya existe un proceso marcado como final."
+                return False
+        return True
+
+    def _modal_apply(self):
+        name = self.modal_proc_name.text.strip()
+        if not name:
+            self.modal_error = "El nombre del proceso no puede estar vacio."
+            return
+        if not self.modal_tasks:
+            self.modal_error = "Agrega al menos una tarea para guardar el proceso."
+            return
+
+        data = {
+            "nombre": name,
+            "es_inicial": self.modal_chk_initial.checked,
+            "es_final": self.modal_chk_final.checked,
+            "tareas": [{"nombre": t["nombre"], "tiempo": int(t["tiempo"])} for t in self.modal_tasks],
+        }
+
+        if not self._modal_validate_flags(data):
+            return
+
+        if self.modal_edit_index is None:
+            self.procesos_cfg.append(data)
+            self.cards_scroll = 0.0
+            self.cards_scrollbar.offset = 0.0
+        else:
+            self.procesos_cfg[self.modal_edit_index] = data
+
+        self._close_modal()
+
+    def _delete_process(self, index: int):
+        if 0 <= index < len(self.procesos_cfg):
+            self.procesos_cfg.pop(index)
+
+    def _draw_header(self, layout: dict):
+        rect = layout["header"]
+        if self.header_bg is not None:
+            scaled = pygame.transform.smoothscale(self.header_bg, (rect.w, rect.h))
+            self.screen.blit(scaled, rect.topleft)
+        else:
+            _draw_smooth_rounded_rect(self.screen, rect, _hex_to_rgb("D9E4F7"), 8)
+
+        title_x = rect.x + max(36, int(96 * self.ui_scale))
+        title_y = rect.y + max(20, int(42 * self.ui_scale))
+
+        title = self.font_title.render("Simulación", True, BLUE_PRIMARY)
+        subtitle = self.font_subtitle.render("Línea de Producción", True, BLUE_PRIMARY)
+        self.screen.blit(title, (title_x, title_y))
+        self.screen.blit(subtitle, (title_x, title_y + title.get_height() + max(4, int(2 * self.ui_scale))))
+
+        members_x = rect.right - max(330, int(370 * self.ui_scale))
+        members_y = title_y + max(2, int(6 * self.ui_scale))
+        for idx, name in enumerate(self.TEAM_MEMBERS):
+            txt = self.font_tiny.render(name, True, TEXT_SOFT)
+            self.screen.blit(txt, (members_x, members_y + idx * (txt.get_height() + 4)))
+
+    def _draw_process_card(self, proc_idx: int, proc_cfg: dict, rect: pygame.Rect):
+        hovered = proc_idx == self.hover_card_index
+        border_col = CARD_BORDER_HOVER if hovered else CARD_BORDER
+
+        _draw_smooth_rounded_rect(
+            self.screen,
+            rect,
+            CARD_BG,
+            10,
+            border_color=border_col,
+            border_width=2 if hovered else 1,
+        )
+
+        icon_box = pygame.Rect(rect.x + 18, rect.y + 20, max(52, int(72 * self.ui_scale)), max(52, int(72 * self.ui_scale)))
+        _draw_smooth_rounded_rect(self.screen, icon_box, CARD_IMAGE_BG, 10)
+
+        picon = self._get_icon(self._process_icon_name(proc_cfg), max(24, int(34 * self.ui_scale)))
+        if picon is not None:
+            p_rect = picon.get_rect(center=icon_box.center)
+            self.screen.blit(picon, p_rect)
+
+        info_x = icon_box.right + max(12, int(16 * self.ui_scale))
+        name_max = rect.right - info_x - 16
+        name = self._trim_text(str(proc_cfg.get("nombre", "")), self.font_h2, name_max)
+        t_name = self.font_h2.render(name, True, TEXT_MID)
+        self.screen.blit(t_name, (info_x, rect.y + 34))
+
+        type_label = self._process_type_label(proc_cfg)
+        t_type = self.font_body.render(type_label, True, TEXT_SOFT)
+        self.screen.blit(t_type, (info_x, rect.y + 34 + t_name.get_height() + 5))
+
+        bullet_y = rect.y + max(136, int(168 * self.ui_scale))
+        c_tareas = len(proc_cfg.get("tareas", []))
+        sum_t = self._sum_task_time(proc_cfg)
+        line1 = self.font_body.render(f"• Cantidad de Tareas: {c_tareas}", True, TEXT_MID)
+        line2 = self.font_body.render(f"• Tiempo de ejecución: {sum_t}", True, TEXT_MID)
+        self.screen.blit(line1, (rect.x + 24, bullet_y))
+        self.screen.blit(line2, (rect.x + 24, bullet_y + line1.get_height() + 10))
+
+        radius = max(20, int(30 * self.ui_scale))
+        del_center = (rect.right - max(40, int(52 * self.ui_scale)), rect.bottom - max(34, int(48 * self.ui_scale)))
+        edit_center = (del_center[0] - (radius * 2 + max(10, int(12 * self.ui_scale))), del_center[1])
+
+        _draw_smooth_circle(self.screen, edit_center, radius, BLUE_CARD)
+        _draw_smooth_circle(self.screen, del_center, radius, BLUE_CARD)
+
+        e_icon = self._get_icon("edit", max(16, int(22 * self.ui_scale)))
+        d_icon = self._get_icon("delete", max(16, int(22 * self.ui_scale)))
+        if e_icon is not None:
+            self.screen.blit(e_icon, e_icon.get_rect(center=edit_center))
+        if d_icon is not None:
+            self.screen.blit(d_icon, d_icon.get_rect(center=del_center))
+
+        edit_rect = pygame.Rect(0, 0, radius * 2, radius * 2)
+        del_rect = pygame.Rect(0, 0, radius * 2, radius * 2)
+        edit_rect.center = edit_center
+        del_rect.center = del_center
+
+        self.card_hitboxes.append(
+            {
+                "index": proc_idx,
+                "rect": rect,
+                "edit": edit_rect,
+                "delete": del_rect,
+            }
+        )
+
+    def _draw_processes(self, layout: dict):
+        cards_clip: pygame.Rect = layout["cards_clip"]
+        scroll_rect: pygame.Rect = layout["cards_scroll"]
+
+        card_h = min(max(260, int(430 * self.ui_scale)), cards_clip.h - 8)
+        card_w = max(260, int(card_h * 0.78))
+        gap = max(14, int(24 * self.ui_scale))
+
+        total = 0
+        if self.procesos_cfg:
+            total = len(self.procesos_cfg) * (card_w + gap) - gap
+
+        self.cards_scrollbar.set_rect(scroll_rect)
+        self.cards_scrollbar.set_lengths(max(1, total), max(1, cards_clip.w))
+        self.cards_scrollbar.offset = max(0.0, min(self.cards_scrollbar.max_offset, self.cards_scroll))
+        self.cards_scroll = self.cards_scrollbar.offset
+
+        self.card_hitboxes = []
+        prev_clip = self.screen.get_clip()
+        self.screen.set_clip(cards_clip)
+
+        for idx, proc_cfg in enumerate(self.procesos_cfg):
+            x_in_content = total - card_w - idx * (card_w + gap)
+            draw_x = cards_clip.x + int(x_in_content - self.cards_scroll)
+            draw_rect = pygame.Rect(draw_x, cards_clip.y + 4, card_w, card_h)
+
+            if draw_rect.right < cards_clip.left - 10 or draw_rect.left > cards_clip.right + 10:
+                continue
+            self._draw_process_card(idx, proc_cfg, draw_rect)
+
+        self.screen.set_clip(prev_clip)
+
+        if self.cards_scrollbar.max_offset > 0:
+            self.cards_scrollbar.draw(self.screen)
+
+    def _draw_bottom_controls(self, layout: dict):
+        self.btn_add_proc.set_rect(layout["add_btn"])
+        self.btn_start.set_rect(layout["start_btn"])
+        self.btn_save.set_rect(layout["save_btn"])
+        self.btn_load.set_rect(layout["load_btn"])
+        self.inp_cantidad.set_rect(layout["qty_input"])
+
+        qty_label = self.font_small.render("Cantidad de productos", True, TEXT_SOFT)
+        self.screen.blit(qty_label, (self.inp_cantidad.rect.x, self.inp_cantidad.rect.y - qty_label.get_height() - 7))
+
+        self.inp_cantidad.draw(self.screen, self.font_body)
+        self.btn_save.draw(self.screen, self.font_small)
+        self.btn_load.draw(self.screen, self.font_small)
+
+        self.btn_add_proc.draw(self.screen, self.font_h2)
+        self.btn_start.draw(self.screen, self.font_h2)
+
+    def _draw_main(self, layout: dict):
+        self.screen.fill(PAGE_BG)
+        self._draw_header(layout)
+
+        cp = layout["count_pos"]
+        count_txt = self.font_h2.render(f"{len(self.procesos_cfg)} Procesos configurado", True, TEXT_DARK)
+        self.screen.blit(count_txt, cp)
+
+        self._draw_processes(layout)
+        self._draw_bottom_controls(layout)
+
+    def _draw_modal(self, panel: pygame.Rect, m: dict):
+        if m is None:
+            m = self._modal_layout(panel)
+
+        overlay = pygame.Surface(self.screen.get_size(), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 72))
+        self.screen.blit(overlay, (0, 0))
+
+        glow_rect = panel.inflate(10, 10)
+        glow = pygame.Surface((glow_rect.w, glow_rect.h), pygame.SRCALPHA)
+        _draw_smooth_rounded_rect(glow, glow.get_rect(), (*BLUE_GLOW, 70), 26)
+        self.screen.blit(glow, glow_rect.topleft)
+
+        _draw_smooth_rounded_rect(self.screen, panel, WHITE, 24)
+
+        self.modal_proc_name.set_rect(m["proc_input"])
+        self.modal_task_name.set_rect(m["task_name"])
+        self.modal_task_time.set_rect(m["task_time"])
+        self.modal_chk_initial.set_pos(m["proc_input"].x, m["checks_y"])
+        self.modal_chk_final.set_pos(m["proc_input"].x + m["proc_input"].w // 2 + 8, m["checks_y"])
+        self.btn_modal_add_task.set_rect(m["add_task_btn"])
+        self.btn_modal_apply.set_rect(m["apply_btn"])
+
+        title = self.font_h1.render("Nombre del Proceso", True, TEXT_DARK)
+        self.screen.blit(title, (m["proc_input"].x, m["proc_input"].y - title.get_height() - 22))
+
+        self.modal_proc_name.draw(self.screen, self.font_body)
+        self.modal_chk_initial.draw(self.screen, self.font_h2)
+        self.modal_chk_final.draw(self.screen, self.font_h2)
+
+        tname_lbl = self.font_h2.render("Nombre de la tarea", True, TEXT_MID)
+        self.screen.blit(tname_lbl, (m["task_name"].x, m["task_name"].y - tname_lbl.get_height() - 12))
+        self.modal_task_name.draw(self.screen, self.font_body)
+
+        ttime_lbl = self.font_h2.render("Tiempo de tarea", True, TEXT_MID)
+        self.screen.blit(ttime_lbl, (m["task_time"].x, m["task_time"].y - ttime_lbl.get_height() - 12))
+        self.modal_task_time.draw(self.screen, self.font_body)
+        ciclos = self.font_small.render("Ciclos", True, TEXT_HINT)
+        self.screen.blit(ciclos, (m["task_time"].x, m["task_time"].bottom + 5))
+
+        self.btn_modal_add_task.draw(self.screen, self.font_h2)
+        self.btn_modal_apply.draw(self.screen, self.font_h2)
+
+        list_title = self.font_h1.render("Lista de Tareas", True, TEXT_DARK)
+        self.screen.blit(list_title, m["tasks_title"])
+
+        list_clip: pygame.Rect = m["list_clip"]
+        item_h = max(70, int(84 * self.ui_scale))
+        item_gap = max(8, int(12 * self.ui_scale))
+
+        content_h = 0
+        if self.modal_tasks:
+            content_h = len(self.modal_tasks) * (item_h + item_gap) - item_gap
+
+        max_scroll = max(0.0, float(content_h - list_clip.h))
+        self.modal_task_scroll = max(0.0, min(self.modal_task_scroll, max_scroll))
+
+        self.modal_task_delete_hitboxes = []
+        prev_clip = self.screen.get_clip()
+        self.screen.set_clip(list_clip)
+
+        for i, task in enumerate(self.modal_tasks):
+            item_y = list_clip.y + i * (item_h + item_gap) - int(self.modal_task_scroll)
+            item_rect = pygame.Rect(list_clip.x, item_y, list_clip.w, item_h)
+            if item_rect.bottom < list_clip.top - 2 or item_rect.top > list_clip.bottom + 2:
+                continue
+
+            _draw_smooth_rounded_rect(
+                self.screen,
+                item_rect,
+                WHITE,
+                12,
+                border_color=CARD_BORDER,
+                border_width=1,
+            )
+
+            ic_r = max(18, int(24 * self.ui_scale))
+            ic_c = (item_rect.x + max(30, int(40 * self.ui_scale)), item_rect.centery)
+            _draw_smooth_circle(self.screen, ic_c, ic_r, _hex_to_rgb("EEF2FA"))
+
+            t_icon = self._get_icon("task", max(16, int(24 * self.ui_scale)))
+            if t_icon is not None:
+                self.screen.blit(t_icon, t_icon.get_rect(center=ic_c))
+
+            tx = item_rect.x + max(64, int(84 * self.ui_scale))
+            name_max = item_rect.w - max(170, int(220 * self.ui_scale))
+            nm = self._trim_text(str(task["nombre"]), self.font_h2, name_max)
+
+            nm_s = self.font_h2.render(nm, True, TEXT_MID)
+            cy_s = self.font_body.render(f"#{task['tiempo']} ciclos", True, TEXT_SOFT)
+            self.screen.blit(nm_s, (tx, item_rect.y + max(14, int(16 * self.ui_scale))))
+            self.screen.blit(cy_s, (tx, item_rect.y + max(16, int(18 * self.ui_scale)) + nm_s.get_height()))
+
+            d_icon = self._get_icon("delete", max(16, int(22 * self.ui_scale)))
+            d_rect = pygame.Rect(0, 0, max(26, int(30 * self.ui_scale)), max(26, int(30 * self.ui_scale)))
+            d_rect.center = (item_rect.right - max(26, int(34 * self.ui_scale)), item_rect.centery)
+            if d_icon is not None:
+                self.screen.blit(d_icon, d_icon.get_rect(center=d_rect.center))
+
+            self.modal_task_delete_hitboxes.append((i, d_rect))
+
+        self.screen.set_clip(prev_clip)
+
+        if max_scroll > 0:
+            track_w = max(6, int(8 * self.ui_scale))
+            track = pygame.Rect(list_clip.right - track_w, list_clip.y, track_w, list_clip.h)
+            _draw_smooth_rounded_rect(self.screen, track, _hex_to_rgb("E7ECF9"), 4)
+            thumb_h = max(26, int(list_clip.h * (list_clip.h / max(1.0, content_h))))
+            travel = max(1, list_clip.h - thumb_h)
+            thumb_y = int(track.y + (self.modal_task_scroll / max_scroll) * travel)
+            thumb = pygame.Rect(track.x, thumb_y, track_w, thumb_h)
+            _draw_smooth_rounded_rect(self.screen, thumb, _hex_to_rgb("A8BCE6"), 4)
+
+        if not self.modal_tasks:
+            empty = self.font_body.render("Agrega tareas para este proceso.", True, TEXT_HINT)
+            self.screen.blit(empty, (list_clip.x + 8, list_clip.y + 8))
+
+        if self.modal_error:
+            err = self.font_small.render(self.modal_error, True, _hex_to_rgb("B73232"))
+            self.screen.blit(err, (m["proc_input"].x, panel.bottom - max(52, int(68 * self.ui_scale))))
+
+    def _handle_main_event(self, event: pygame.event.Event, layout: dict):
+        if event.type == pygame.MOUSEMOTION:
+            self.btn_add_proc.update_hover(event.pos)
+            self.btn_start.update_hover(event.pos)
+            self.btn_save.update_hover(event.pos)
+            self.btn_load.update_hover(event.pos)
+
+            self.hover_card_index = None
+            for hb in self.card_hitboxes:
+                if hb["rect"].collidepoint(event.pos):
+                    self.hover_card_index = hb["index"]
+                    break
+
+        self.inp_cantidad.handle(event)
+
+        if self.cards_scrollbar.handle(event):
+            self.cards_scroll = self.cards_scrollbar.offset
+            return
+
+        if event.type == pygame.MOUSEWHEEL:
+            mx, my = pygame.mouse.get_pos()
+            if layout["cards_clip"].collidepoint((mx, my)):
+                self.cards_scrollbar.scroll_pixels(-event.y * max(50, int(72 * self.ui_scale)))
+                self.cards_scroll = self.cards_scrollbar.offset
                 return
 
-        if self.sel_proc is not None:
-            for i, tc in enumerate(self.procesos_cfg[self.sel_proc]["tareas"]):
-                row = pygame.Rect(C2_X + 4, list_top + i * (ROW_H + 2), C2_W - 8, ROW_H)
-                if row.collidepoint(event.pos):
-                    if self.sel_tarea != i:
-                        self.sel_tarea = i
-                        self._load_tarea_to_form()
-                        print(f"[INFO] Tarea '{tc['nombre']}' seleccionada.")
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            for hb in self.card_hitboxes:
+                if hb["delete"].collidepoint(event.pos):
+                    self._delete_process(hb["index"])
+                    return
+                if hb["edit"].collidepoint(event.pos):
+                    self._open_process_modal(hb["index"])
                     return
 
-    # ── Loop principal ────────────────────────────────────────────────────────
+        if self.btn_add_proc.clicked(event):
+            self._open_process_modal(None)
+            return
+        if self.btn_start.clicked(event):
+            result = self._construir_linea()
+            if result is not None:
+                pygame.event.post(pygame.event.Event(pygame.USEREVENT, {"action": "finish"}))
+            return
+        if self.btn_save.clicked(event):
+            self._guardar_json()
+            return
+        if self.btn_load.clicked(event):
+            self._cargar_json()
+            return
 
-    def _visible_inputs(self):
-        """Inputs que reciben eventos según el modo actual."""
-        mode = self._props_mode()
-        if mode == "process":
-            return (self.inp_proc_nombre, self.inp_cantidad)
-        if mode == "task":
-            return (self.inp_tarea_nombre, self.inp_tarea_tiempo, self.inp_cantidad)
-        return (self.inp_cantidad,)
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_F11:
+                info = pygame.display.Info()
+                self.screen = pygame.display.set_mode((info.current_w, info.current_h), pygame.RESIZABLE)
+                return
+            if event.key == pygame.K_s and (event.mod & pygame.KMOD_CTRL):
+                self._guardar_json()
+                return
+            if event.key == pygame.K_l and (event.mod & pygame.KMOD_CTRL):
+                self._cargar_json()
+                return
 
-    def _all_inputs(self):
-        return (
-            self.inp_proc_nombre,
-            self.inp_tarea_nombre,
-            self.inp_tarea_tiempo,
-            self.inp_cantidad,
-        )
+    def _handle_modal_event(self, event: pygame.event.Event, panel: pygame.Rect, m: dict):
+        if m is None:
+            m = self._modal_layout(panel)
 
-    def _all_buttons(self):
-        return (
-            self.btn_add_proc,
-            self.btn_del_proc,
-            self.btn_up_proc,
-            self.btn_dn_proc,
-            self.btn_add_tarea,
-            self.btn_del_tarea,
-            self.btn_proc_ok,
-            self.btn_tarea_ok,
-            self.btn_guardar,
-            self.btn_cargar,
-            self.btn_construir,
-            self.btn_maximizar,
-        )
+        if event.type == pygame.MOUSEMOTION:
+            self.btn_modal_add_task.update_hover(event.pos)
+            self.btn_modal_apply.update_hover(event.pos)
+
+        self.modal_proc_name.handle(event)
+        self.modal_task_name.handle(event)
+        self.modal_task_time.handle(event)
+
+        if self.modal_chk_initial.handle(event):
+            self.modal_error = ""
+            return
+        if self.modal_chk_final.handle(event):
+            self.modal_error = ""
+            return
+
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            for idx, drect in self.modal_task_delete_hitboxes:
+                if drect.collidepoint(event.pos):
+                    self.modal_tasks.pop(idx)
+                    self.modal_error = ""
+                    return
+
+            if not panel.collidepoint(event.pos):
+                return
+
+        if self.btn_modal_add_task.clicked(event):
+            self._modal_add_task()
+            return
+        if self.btn_modal_apply.clicked(event):
+            self._modal_apply()
+            return
+
+        if event.type == pygame.MOUSEWHEEL:
+            mx, my = pygame.mouse.get_pos()
+            clip_rect: pygame.Rect = m["list_clip"]
+            if clip_rect.collidepoint((mx, my)):
+                item_h = max(70, int(84 * self.ui_scale))
+                item_gap = max(8, int(12 * self.ui_scale))
+                content_h = len(self.modal_tasks) * (item_h + item_gap) - item_gap if self.modal_tasks else 0
+                max_scroll = max(0.0, float(content_h - clip_rect.h))
+                self.modal_task_scroll = max(0.0, min(max_scroll, self.modal_task_scroll - event.y * 40.0))
+                return
+
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_ESCAPE:
+                self._close_modal()
+                return
+            if event.key == pygame.K_RETURN and (self.modal_task_name.active or self.modal_task_time.active):
+                self._modal_add_task()
+                return
 
     def run(self) -> LineaProduccion | None:
         running = True
+
         while running:
             dt = self.clock.tick(60)
+            self._refresh_fonts()
 
-            for inp in self._all_inputs():
-                inp.update(dt)
+            layout = self._layout()
+            modal_layout = self._modal_layout(layout["modal"]) if self.modal_open else None
+
+            self.inp_cantidad.update(dt)
+            if self.modal_open:
+                self.modal_proc_name.update(dt)
+                self.modal_task_name.update(dt)
+                self.modal_task_time.update(dt)
 
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     running = False
                     break
 
-                if event.type == pygame.MOUSEMOTION:
-                    for btn in self._all_buttons():
-                        btn.update_hover(event.pos)
+                if event.type == pygame.VIDEORESIZE:
+                    nw = max(940, event.w)
+                    nh = max(620, event.h)
+                    self.screen = pygame.display.set_mode((nw, nh), pygame.RESIZABLE)
+                    self._refresh_fonts()
+                    continue
 
-                # Solo los inputs visibles reciben eventos de teclado/clic
-                for inp in self._visible_inputs():
-                    inp.handle(event)
+                if event.type == pygame.USEREVENT and event.dict.get("action") == "finish":
+                    running = False
+                    continue
 
-                # Checkboxes: guardan inmediatamente al toggelear
-                if self.chk_inicial.handle(event):
-                    self._auto_save_flags()
-                if self.chk_final.handle(event):
-                    self._auto_save_flags()
+                if self.modal_open:
+                    if modal_layout is None:
+                        modal_layout = self._modal_layout(layout["modal"])
+                    self._handle_modal_event(event, layout["modal"], modal_layout)
+                else:
+                    self._handle_main_event(event, layout)
 
-                self._handle_list_clicks(event)
+            self._draw_main(layout)
+            if self.modal_open:
+                if modal_layout is None:
+                    modal_layout = self._modal_layout(layout["modal"])
+                self._draw_modal(layout["modal"], modal_layout)
 
-                if self.btn_add_proc.clicked(event):
-                    self._add_proceso()
-                elif self.btn_del_proc.clicked(event):
-                    self._del_proceso()
-                elif self.btn_up_proc.clicked(event):
-                    self._move_proc(-1)
-                elif self.btn_dn_proc.clicked(event):
-                    self._move_proc(1)
-                elif self.btn_add_tarea.clicked(event):
-                    self._add_tarea()
-                elif self.btn_del_tarea.clicked(event):
-                    self._del_tarea()
-                elif self.btn_proc_ok.clicked(event):
-                    self._apply_proc()
-                elif self.btn_tarea_ok.clicked(event):
-                    self._apply_tarea()
-                elif self.btn_guardar.clicked(event):
-                    self._guardar_json()
-                elif self.btn_cargar.clicked(event):
-                    self._cargar_json()
-                elif self.btn_construir.clicked(event):
-                    result = self._construir_linea()
-                    if result is not None:
-                        running = False
-                elif self.btn_maximizar.clicked(event):
-                    self._maximize_to_monitor()
-
-                if event.type == pygame.KEYDOWN and event.key == pygame.K_F11:
-                    self._maximize_to_monitor()
-
-            self.draw()
+            pygame.display.flip()
 
         pygame.quit()
         return self.linea_resultado
-
-
-# ── Punto de entrada ──────────────────────────────────────────────────────────
 
 
 def main():
