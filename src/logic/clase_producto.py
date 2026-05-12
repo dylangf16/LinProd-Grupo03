@@ -1,13 +1,23 @@
 class Producto:
+    EN_ESPERA = "en_espera"
+    EN_PROCESO = "en_proceso"
+    FINALIZADO = "finalizado"
+
     def __init__(self, id, tiempo_ingreso):
         self.id = id
         self.tiempo_ingreso = tiempo_ingreso
         self.tiempo_salida = None
-        self.estado = "en_espera"  # en_espera | en_proceso | finalizado
+        self.estado = self.EN_ESPERA
+
+    def iniciar_proceso(self):
+        self.estado = self.EN_PROCESO
 
     def finalizar(self, tiempo_salida):
         self.tiempo_salida = tiempo_salida
-        self.estado = "finalizado"
+        self.estado = self.FINALIZADO
+
+    def esta_finalizado(self):
+        return self.estado == self.FINALIZADO
 
     def __str__(self):
         return (

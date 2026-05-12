@@ -56,8 +56,13 @@ class LineaProduccion:
 
     def cargar_productos(self, cantidad):
         """Crea `cantidad` productos y los inyecta al proceso inicial."""
+        cantidad = int(cantidad)
+        if cantidad < 1:
+            raise ValueError("La cantidad de productos debe ser >= 1")
+
         if not self.procesos:
             raise ValueError("La línea no tiene procesos")
+
         inicial = self.get_proceso_inicial()
         if inicial is None:
             raise ValueError("La línea no tiene un proceso inicial definido")
@@ -105,9 +110,7 @@ class LineaProduccion:
 
     def todos_finalizados(self):
         """True si hay productos en la línea y todos están finalizados."""
-        return bool(self.productos) and all(
-            p.estado == "finalizado" for p in self.productos
-        )
+        return bool(self.productos) and all(p.esta_finalizado() for p in self.productos)
 
     def reiniciar(self, cantidad=None):
         """Reinicia la simulación con los mismos procesos y tareas.
@@ -117,13 +120,8 @@ class LineaProduccion:
         self.tiempo_actual = 0
         self.pausada = False
         for proceso in self.procesos:
-            for tarea in proceso.tareas:
-                tarea.esta_procesando = False
-                tarea.producto_actual = None
-                tarea.ticks_restantes = 0
-                tarea.contenido_esperando = []
-                tarea.historial_espera = []
-        cantidad = cantidad if cantidad is not None else self.cantidad_ingreso
+            proceso.reiniciar()
+        cantidad = cantidad if cantidad is not None else max(1, self.cantidad_ingreso)
         self.cargar_productos(cantidad)
 
     def imprimir_estado(self):
