@@ -767,20 +767,38 @@ class ConfigWindow:
             self.screen.blit(scaled, rect.topleft)
         else:
             _draw_smooth_rounded_rect(self.screen, rect, _hex_to_rgb("D9E4F7"), 8)
-
-        title_x = rect.x + max(36, int(96 * self.ui_scale))
-        title_y = rect.y + max(20, int(42 * self.ui_scale))
-
         title = self.font_title.render("Simulación", True, BLUE_PRIMARY)
         subtitle = self.font_subtitle.render("Línea de Producción", True, BLUE_PRIMARY)
-        self.screen.blit(title, (title_x, title_y))
-        self.screen.blit(subtitle, (title_x, title_y + title.get_height() + max(4, int(2 * self.ui_scale))))
 
-        members_x = rect.right - max(330, int(370 * self.ui_scale))
-        members_y = title_y + max(2, int(6 * self.ui_scale))
-        for idx, name in enumerate(self.TEAM_MEMBERS):
-            txt = self.font_tiny.render(name, True, TEXT_SOFT)
-            self.screen.blit(txt, (members_x, members_y + idx * (txt.get_height() + 4)))
+        middle_pad_x = max(36, int(rect.w * 0.08))
+        middle_rect = pygame.Rect(
+            rect.x + middle_pad_x,
+            rect.y + max(16, int(rect.h * 0.21)),
+            max(180, rect.w - middle_pad_x * 2),
+            max(56, int(rect.h * 0.56)),
+        )
+
+        title_x = middle_rect.x + max(10, int(18 * self.ui_scale))
+        title_gap = max(2, int(4 * self.ui_scale))
+        title_block_h = title.get_height() + title_gap + subtitle.get_height()
+        title_y = middle_rect.y + (middle_rect.h - title_block_h) // 2
+
+        self.screen.blit(title, (title_x, title_y))
+        self.screen.blit(subtitle, (title_x, title_y + title.get_height() + title_gap))
+
+        member_surfaces = [self.font_tiny.render(name, True, TEXT_SOFT) for name in self.TEAM_MEMBERS]
+        line_gap = max(3, int(4 * self.ui_scale))
+        block_h = sum(s.get_height() for s in member_surfaces) + line_gap * max(0, len(member_surfaces) - 1)
+        block_w = max((s.get_width() for s in member_surfaces), default=0)
+
+        right_pad = max(12, int(18 * self.ui_scale))
+        members_x = middle_rect.right - right_pad - block_w
+        members_y = middle_rect.y + max(0, (middle_rect.h - block_h) // 2)
+
+        current_y = members_y
+        for txt in member_surfaces:
+            self.screen.blit(txt, (members_x, current_y))
+            current_y += txt.get_height() + line_gap
 
     def _draw_process_card(self, proc_idx: int, proc_cfg: dict, rect: pygame.Rect):
         hovered = proc_idx == self.hover_card_index
