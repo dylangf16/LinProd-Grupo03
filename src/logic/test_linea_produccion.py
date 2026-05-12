@@ -108,7 +108,11 @@ def correr_test(numero, descripcion, configuracion, cantidad_productos):
     verificar(
         test,
         "Delegacion Tarea->Proceso para nombre_proceso",
-        all(t.nombre_proceso == p.nombre_proceso for p in linea.procesos for t in p.tareas),
+        all(
+            t.nombre_proceso == p.nombre_proceso
+            for p in linea.procesos
+            for t in p.tareas
+        ),
     )
     verificar(
         test,

@@ -14,7 +14,6 @@ from pathlib import Path
 
 import pygame
 
-
 # Si se ejecuta este archivo directamente, asegura imports del proyecto.
 ROOT = Path(__file__).resolve().parent.parent.parent
 if str(ROOT) not in sys.path:
@@ -23,7 +22,6 @@ if str(ROOT / "src" / "logic") not in sys.path:
     sys.path.insert(0, str(ROOT / "src" / "logic"))
 
 from src.logic.clase_linea_produccion import LineaProduccion
-
 
 # ------------------------------ Estilos y layout ------------------------------
 
@@ -136,7 +134,9 @@ class ScrollBar:
             thumb_pos = int((self.offset / self.max_offset) * travel)
 
         if self.vertical:
-            return pygame.Rect(self.rect.x, self.rect.y + thumb_pos, self.rect.w, thumb_len)
+            return pygame.Rect(
+                self.rect.x, self.rect.y + thumb_pos, self.rect.w, thumb_len
+            )
         return pygame.Rect(self.rect.x + thumb_pos, self.rect.y, thumb_len, self.rect.h)
 
     def handle(self, event):
@@ -164,11 +164,18 @@ class ScrollBar:
             mouse_now = event.pos[1] if self.vertical else event.pos[0]
             delta = mouse_now - self.drag_mouse_origin
             thumb_now = self._thumb_rect()
-            travel = (self.rect.h - thumb_now.h) if self.vertical else (self.rect.w - thumb_now.w)
+            travel = (
+                (self.rect.h - thumb_now.h)
+                if self.vertical
+                else (self.rect.w - thumb_now.w)
+            )
             if travel > 0 and self.max_offset > 0:
                 self.offset = max(
                     0.0,
-                    min(self.max_offset, self.drag_offset_origin + delta * self.max_offset / travel),
+                    min(
+                        self.max_offset,
+                        self.drag_offset_origin + delta * self.max_offset / travel,
+                    ),
                 )
             return True
 
@@ -232,7 +239,11 @@ class SimulationWindow:
         self.font_sm = pygame.font.SysFont("Segoe UI", 14)
 
         self.linea = linea
-        base_count = cantidad_productos if cantidad_productos is not None else linea.cantidad_ingreso
+        base_count = (
+            cantidad_productos
+            if cantidad_productos is not None
+            else linea.cantidad_ingreso
+        )
         self.cantidad_productos = max(1, int(base_count or 1))
 
         self.running = True
@@ -279,15 +290,21 @@ class SimulationWindow:
         view_h = max(220, self.screen_h - (TOP_H + PAD * 2 + FOOT_H) - SCROLL_SZ)
         self.view_rect = pygame.Rect(PAD, TOP_H + PAD, view_w, view_h)
 
-        self.hbar.rect = pygame.Rect(self.view_rect.x, self.view_rect.bottom + 4, self.view_rect.w, SCROLL_SZ)
-        self.vbar.rect = pygame.Rect(self.view_rect.right + 4, self.view_rect.y, SCROLL_SZ, self.view_rect.h)
+        self.hbar.rect = pygame.Rect(
+            self.view_rect.x, self.view_rect.bottom + 4, self.view_rect.w, SCROLL_SZ
+        )
+        self.vbar.rect = pygame.Rect(
+            self.view_rect.right + 4, self.view_rect.y, SCROLL_SZ, self.view_rect.h
+        )
 
         self.hbar.set_lengths(self.world_w, self.view_rect.w)
         self.vbar.set_lengths(self.world_h, self.view_rect.h)
 
     def _maximize_to_monitor(self):
         info = pygame.display.Info()
-        self.screen = pygame.display.set_mode((info.current_w, info.current_h), pygame.RESIZABLE)
+        self.screen = pygame.display.set_mode(
+            (info.current_w, info.current_h), pygame.RESIZABLE
+        )
         self.screen_w, self.screen_h = self.screen.get_size()
         self._refresh_viewport()
 
@@ -296,18 +313,30 @@ class SimulationWindow:
     def _load_assets(self):
         assets_dir = Path(__file__).resolve().parent / "assets"
 
-        def load_or_placeholder(path: Path, size: tuple[int, int], color: tuple[int, int, int]):
+        def load_or_placeholder(
+            path: Path, size: tuple[int, int], color: tuple[int, int, int]
+        ):
             try:
                 image = pygame.image.load(str(path))
-                image = image.convert_alpha() if image.get_alpha() is not None else image.convert()
+                image = (
+                    image.convert_alpha()
+                    if image.get_alpha() is not None
+                    else image.convert()
+                )
             except Exception:
                 image = pygame.Surface(size)
                 image.fill(color)
             return pygame.transform.smoothscale(image, size)
 
-        self.asset_proc = load_or_placeholder(assets_dir / "proceso.png", (PROC_W, PROC_H), (66, 85, 140))
-        self.asset_task = load_or_placeholder(assets_dir / "tarea.png", (TASK_W, TASK_H), (90, 120, 160))
-        self.asset_prod = load_or_placeholder(assets_dir / "producto.jpg", (PROD_SZ, PROD_SZ), (213, 171, 82))
+        self.asset_proc = load_or_placeholder(
+            assets_dir / "proceso.png", (PROC_W, PROC_H), (66, 85, 140)
+        )
+        self.asset_task = load_or_placeholder(
+            assets_dir / "tarea.png", (TASK_W, TASK_H), (90, 120, 160)
+        )
+        self.asset_prod = load_or_placeholder(
+            assets_dir / "producto.jpg", (PROD_SZ, PROD_SZ), (213, 171, 82)
+        )
 
     def _build_controls(self):
         y = 16
@@ -479,7 +508,8 @@ class SimulationWindow:
         newly_finished = [
             pid
             for pid, loc in new_locs.items()
-            if loc[0] == "final" and (pid not in old_locs or old_locs[pid][0] != "final")
+            if loc[0] == "final"
+            and (pid not in old_locs or old_locs[pid][0] != "final")
         ]
         if newly_finished:
             self._register_finished(sorted(newly_finished))
@@ -522,7 +552,9 @@ class SimulationWindow:
             if event.type == pygame.VIDEORESIZE:
                 self.screen_w = event.w
                 self.screen_h = event.h
-                self.screen = pygame.display.set_mode((event.w, event.h), pygame.RESIZABLE)
+                self.screen = pygame.display.set_mode(
+                    (event.w, event.h), pygame.RESIZABLE
+                )
                 self._refresh_viewport()
                 continue
 
@@ -570,7 +602,9 @@ class SimulationWindow:
 
     def _draw_top(self):
         pygame.draw.rect(self.screen, BG_2, (0, 0, self.screen_w, TOP_H))
-        pygame.draw.line(self.screen, BORDER, (0, TOP_H - 1), (self.screen_w, TOP_H - 1), 1)
+        pygame.draw.line(
+            self.screen, BORDER, (0, TOP_H - 1), (self.screen_w, TOP_H - 1), 1
+        )
 
         if self.playing:
             self.btn_toggle.label = "Pausar"
@@ -658,22 +692,30 @@ class SimulationWindow:
         self.world.blit(fin_title, (self.finish_rect.x + 16, self.finish_rect.y + 14))
 
         fin_total = sum(1 for p in self.linea.productos if p.estado == "finalizado")
-        fin_txt = self.font_sm.render(f"Total: {fin_total}/{len(self.linea.productos)}", True, TEXT)
+        fin_txt = self.font_sm.render(
+            f"Total: {fin_total}/{len(self.linea.productos)}", True, TEXT
+        )
         self.world.blit(fin_txt, (self.finish_rect.x + 16, self.finish_rect.y + 44))
 
         if self.first_finished_id is not None:
-            ptxt = self.font_sm.render(f"Visible: Producto {self.first_finished_id}", True, TEXT_DIM)
+            ptxt = self.font_sm.render(
+                f"Visible: Producto {self.first_finished_id}", True, TEXT_DIM
+            )
             self.world.blit(ptxt, (self.finish_rect.x + 16, self.finish_rect.y + 68))
 
         if self.hidden_finished_count > 0:
-            htxt = self.font_sm.render(f"Ocultos: {self.hidden_finished_count}", True, TEXT_DIM)
+            htxt = self.font_sm.render(
+                f"Ocultos: {self.hidden_finished_count}", True, TEXT_DIM
+            )
             self.world.blit(htxt, (self.finish_rect.x + 16, self.finish_rect.y + 90))
 
         # productos animados
         for sprite in self.product_sprites.values():
             if not sprite.visible:
                 continue
-            rect = self.asset_prod.get_rect(center=(int(sprite.pos.x), int(sprite.pos.y)))
+            rect = self.asset_prod.get_rect(
+                center=(int(sprite.pos.x), int(sprite.pos.y))
+            )
             self.world.blit(self.asset_prod, rect.topleft)
             id_txt = self.font_sm.render(str(sprite.pid), True, (25, 25, 25))
             self.world.blit(id_txt, id_txt.get_rect(center=rect.center))
@@ -705,7 +747,12 @@ class SimulationWindow:
         self._draw_top()
         self._draw_world()
 
-        src = pygame.Rect(int(self.hbar.offset), int(self.vbar.offset), self.view_rect.w, self.view_rect.h)
+        src = pygame.Rect(
+            int(self.hbar.offset),
+            int(self.vbar.offset),
+            self.view_rect.w,
+            self.view_rect.h,
+        )
         self.screen.blit(self.world, self.view_rect.topleft, src)
 
         pygame.draw.rect(self.screen, BORDER, self.view_rect, 2)
@@ -754,7 +801,9 @@ def main():
             print("Configuracion cancelada.")
             return None
 
-        sim = SimulationWindow(linea, cantidad_productos=max(1, linea.cantidad_ingreso or 1))
+        sim = SimulationWindow(
+            linea, cantidad_productos=max(1, linea.cantidad_ingreso or 1)
+        )
         action = sim.run()
         if action == "reconfigure":
             continue

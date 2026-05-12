@@ -17,29 +17,29 @@ from src.logic.clase_proceso import Proceso
 from src.logic.clase_tarea import Tarea
 
 # ── Paleta ────────────────────────────────────────────────────────────────────
-BG       = (28,  28,  35)
-PANEL    = (40,  40,  50)
-PANEL2   = (50,  50,  62)
-BORDER   = (75,  75,  90)
-SEP_COL  = (60,  60,  75)
-TEXT     = (220, 220, 220)
+BG = (28, 28, 35)
+PANEL = (40, 40, 50)
+PANEL2 = (50, 50, 62)
+BORDER = (75, 75, 90)
+SEP_COL = (60, 60, 75)
+TEXT = (220, 220, 220)
 TEXT_DIM = (130, 130, 145)
-SEL_BG   = (70,  100, 200)
-BTN_G    = (55,  150,  70)
-BTN_R    = (190,  55,  55)
-BTN_B    = (45,  120, 195)
-BTN_GR   = (85,   85,  98)
-ACCENT   = (255, 200,  50)
-INP_BG   = (35,  35,  45)
-INP_ACT  = (48,  55,  78)
+SEL_BG = (70, 100, 200)
+BTN_G = (55, 150, 70)
+BTN_R = (190, 55, 55)
+BTN_B = (45, 120, 195)
+BTN_GR = (85, 85, 98)
+ACCENT = (255, 200, 50)
+INP_BG = (35, 35, 45)
+INP_ACT = (48, 55, 78)
 
 # ── Dimensiones ───────────────────────────────────────────────────────────────
-W, H    = 1200, 760
-HDR_H   = 52
-C1_W    = 285
-C2_W    = 345
-C3_W    = W - C1_W - C2_W   # 570
-CONT_H  = H - HDR_H          # 708
+W, H = 1200, 760
+HDR_H = 52
+C1_W = 285
+C2_W = 345
+C3_W = W - C1_W - C2_W  # 570
+CONT_H = H - HDR_H  # 708
 
 C1_X = 0
 C2_X = C1_W
@@ -47,21 +47,22 @@ C3_X = C1_W + C2_W
 
 ROW_H = 36
 BTN_H = 30
-PAD   = 12
+PAD = 12
 
 # Posiciones fijas de la columna 3
-_PX    = C3_X + PAD           # x base: 632
-_PY    = HDR_H + PAD * 2      # y inicio props: 76  (más holgura bajo el header)
-_SIM_Y = 330                   # y inicio sección parámetros de simulación
+_PX = C3_X + PAD  # x base: 632
+_PY = HDR_H + PAD * 2  # y inicio props: 76  (más holgura bajo el header)
+_SIM_Y = 330  # y inicio sección parámetros de simulación
 
 
 # ── Primitivos UI ─────────────────────────────────────────────────────────────
 
+
 class Button:
     def __init__(self, rect, label, color=BTN_GR):
-        self.rect   = pygame.Rect(rect)
-        self.label  = label
-        self.color  = color
+        self.rect = pygame.Rect(rect)
+        self.label = label
+        self.color = color
         self._hover = False
 
     def draw(self, surf, font):
@@ -75,34 +76,40 @@ class Button:
         self._hover = self.rect.collidepoint(pos)
 
     def clicked(self, event):
-        return (event.type == pygame.MOUSEBUTTONDOWN
-                and event.button == 1
-                and self.rect.collidepoint(event.pos))
+        return (
+            event.type == pygame.MOUSEBUTTONDOWN
+            and event.button == 1
+            and self.rect.collidepoint(event.pos)
+        )
 
 
 class TextInput:
     def __init__(self, rect, placeholder="", numeric=False, max_len=40):
-        self.rect    = pygame.Rect(rect)
-        self.ph      = placeholder
+        self.rect = pygame.Rect(rect)
+        self.ph = placeholder
         self.numeric = numeric
         self.max_len = max_len
-        self.text    = ""
-        self.active  = False
-        self._ct     = 0
-        self._cv     = True
+        self.text = ""
+        self.active = False
+        self._ct = 0
+        self._cv = True
 
     def draw(self, surf, font):
         bg = INP_ACT if self.active else INP_BG
-        bc = SEL_BG  if self.active else BORDER
+        bc = SEL_BG if self.active else BORDER
         pygame.draw.rect(surf, bg, self.rect, border_radius=4)
         pygame.draw.rect(surf, bc, self.rect, 1, border_radius=4)
-        disp  = self.text if self.text else self.ph
+        disp = self.text if self.text else self.ph
         color = TEXT if self.text else TEXT_DIM
         t = font.render(disp, True, color)
-        surf.blit(t, (self.rect.x + 8, self.rect.y + (self.rect.h - t.get_height()) // 2))
+        surf.blit(
+            t, (self.rect.x + 8, self.rect.y + (self.rect.h - t.get_height()) // 2)
+        )
         if self.active and self._cv:
             cx = self.rect.x + 8 + font.size(self.text)[0]
-            pygame.draw.line(surf, TEXT, (cx, self.rect.y + 5), (cx, self.rect.bottom - 5), 2)
+            pygame.draw.line(
+                surf, TEXT, (cx, self.rect.y + 5), (cx, self.rect.bottom - 5), 2
+            )
 
     def update(self, dt):
         self._ct += dt
@@ -127,8 +134,8 @@ class TextInput:
 
 class Checkbox:
     def __init__(self, x, y, label):
-        self.rect    = pygame.Rect(x, y, 20, 20)
-        self.label   = label
+        self.rect = pygame.Rect(x, y, 20, 20)
+        self.label = label
         self.checked = False
 
     def draw(self, surf, font):
@@ -140,15 +147,18 @@ class Checkbox:
         surf.blit(t, (self.rect.right + 7, self.rect.centery - t.get_height() // 2))
 
     def handle(self, event):
-        if (event.type == pygame.MOUSEBUTTONDOWN
-                and event.button == 1
-                and self.rect.collidepoint(event.pos)):
+        if (
+            event.type == pygame.MOUSEBUTTONDOWN
+            and event.button == 1
+            and self.rect.collidepoint(event.pos)
+        ):
             self.checked = not self.checked
             return True
         return False
 
 
 # ── Ventana de configuración ──────────────────────────────────────────────────
+
 
 class ConfigWindow:
     CONFIG_FILE = "configuracion_linea.json"
@@ -157,56 +167,78 @@ class ConfigWindow:
         pygame.init()
         self.screen = pygame.display.set_mode((W, H), pygame.RESIZABLE)
         pygame.display.set_caption("LinProd — Configuración de Línea de Producción")
-        self.clock  = pygame.time.Clock()
+        self.clock = pygame.time.Clock()
 
-        self.font_h  = pygame.font.SysFont("Segoe UI", 24, bold=True)
-        self.font    = pygame.font.SysFont("Segoe UI", 18)
+        self.font_h = pygame.font.SysFont("Segoe UI", 24, bold=True)
+        self.font = pygame.font.SysFont("Segoe UI", 18)
         self.font_sm = pygame.font.SysFont("Segoe UI", 15)
 
         # Estado: lista de dicts {nombre, es_inicial, es_final, tareas:[{nombre,tiempo}]}
         self.procesos_cfg: list[dict] = []
-        self.sel_proc:  int | None = None
+        self.sel_proc: int | None = None
         self.sel_tarea: int | None = None
 
         # ── Widgets col3: propiedades de proceso ──────────────────────────────
         # Offsets desde _PY: título(0) → label(+20) → input(+36) → checks(+82) → btn(+112)
         self.inp_proc_nombre = TextInput(
-            (_PX, _PY + 58, C3_W - PAD * 2, 32), placeholder="Nombre del proceso")
-        self.chk_inicial = Checkbox(_PX,       _PY + 110, "Proceso Inicial")
-        self.chk_final   = Checkbox(_PX + 180, _PY + 110, "Proceso Final")
+            (_PX, _PY + 58, C3_W - PAD * 2, 32), placeholder="Nombre del proceso"
+        )
+        self.chk_inicial = Checkbox(_PX, _PY + 110, "Proceso Inicial")
+        self.chk_final = Checkbox(_PX + 180, _PY + 110, "Proceso Final")
         self.btn_proc_ok = Button((_PX, _PY + 148, 130, BTN_H + 4), "Aplicar", BTN_B)
 
         # ── Widgets col3: propiedades de tarea ───────────────────────────────
         # Misma zona que proceso (se muestran de forma alternada)
         # Offsets desde _PY: título(0) → label(+20) → input(+36) → label(+82) → input(+98) → btn(+144)
         self.inp_tarea_nombre = TextInput(
-            (_PX, _PY + 58, C3_W - PAD * 2, 32), placeholder="Nombre de la tarea")
+            (_PX, _PY + 58, C3_W - PAD * 2, 32), placeholder="Nombre de la tarea"
+        )
         self.inp_tarea_tiempo = TextInput(
-            (_PX, _PY + 130, 120, 32), placeholder="Ciclos", numeric=True, max_len=5)
+            (_PX, _PY + 130, 120, 32), placeholder="Ciclos", numeric=True, max_len=5
+        )
         self.btn_tarea_ok = Button((_PX, _PY + 180, 130, BTN_H + 4), "Aplicar", BTN_B)
 
         # ── Widgets col3: parámetros de simulación (posición fija) ───────────
         # Offsets desde _SIM_Y: título(0) → label(+18) → input(+34) → acciones(+80) → construir(+118)
         half_w = (C3_W - PAD * 2 - 8) // 2
-        self.inp_cantidad  = TextInput(
-            (_PX, _SIM_Y + 52, 130, 32), placeholder="# productos", numeric=True, max_len=4)
-        self.btn_guardar   = Button((_PX,              _SIM_Y + 104,         half_w, BTN_H + 4), "Guardar JSON",  BTN_GR)
-        self.btn_cargar    = Button((_PX + half_w + 8, _SIM_Y + 104,         half_w, BTN_H + 4), "Cargar JSON",   BTN_GR)
-        self.btn_construir = Button((_PX,              _SIM_Y + 104 + BTN_H + 12, C3_W - PAD * 2, 40),
-                                    "  Construir Linea de Produccion  >", BTN_G)
+        self.inp_cantidad = TextInput(
+            (_PX, _SIM_Y + 52, 130, 32),
+            placeholder="# productos",
+            numeric=True,
+            max_len=4,
+        )
+        self.btn_guardar = Button(
+            (_PX, _SIM_Y + 104, half_w, BTN_H + 4), "Guardar JSON", BTN_GR
+        )
+        self.btn_cargar = Button(
+            (_PX + half_w + 8, _SIM_Y + 104, half_w, BTN_H + 4), "Cargar JSON", BTN_GR
+        )
+        self.btn_construir = Button(
+            (_PX, _SIM_Y + 104 + BTN_H + 12, C3_W - PAD * 2, 40),
+            "  Construir Linea de Produccion  >",
+            BTN_G,
+        )
         self.btn_maximizar = Button((W - 184, 9, 172, 34), "Maximizar (F11)", BTN_GR)
 
         # ── Widgets col1 / col2: botones de lista ─────────────────────────────
-        c_btn_y = HDR_H + CONT_H - BTN_H - PAD   # 718
+        c_btn_y = HDR_H + CONT_H - BTN_H - PAD  # 718
         qw = (C1_W - PAD * 2 - 12) // 4
-        self.btn_add_proc = Button((C1_X + PAD,              c_btn_y, qw, BTN_H), "+",       BTN_G)
-        self.btn_del_proc = Button((C1_X + PAD + (qw + 4),   c_btn_y, qw, BTN_H), "-",       BTN_R)
-        self.btn_up_proc  = Button((C1_X + PAD + (qw + 4)*2, c_btn_y, qw, BTN_H), "^",       BTN_GR)
-        self.btn_dn_proc  = Button((C1_X + PAD + (qw + 4)*3, c_btn_y, qw, BTN_H), "v",       BTN_GR)
+        self.btn_add_proc = Button((C1_X + PAD, c_btn_y, qw, BTN_H), "+", BTN_G)
+        self.btn_del_proc = Button(
+            (C1_X + PAD + (qw + 4), c_btn_y, qw, BTN_H), "-", BTN_R
+        )
+        self.btn_up_proc = Button(
+            (C1_X + PAD + (qw + 4) * 2, c_btn_y, qw, BTN_H), "^", BTN_GR
+        )
+        self.btn_dn_proc = Button(
+            (C1_X + PAD + (qw + 4) * 3, c_btn_y, qw, BTN_H), "v", BTN_GR
+        )
 
         hw = (C2_W - PAD * 2 - 8) // 2
-        self.btn_add_tarea = Button((C2_X + PAD,           c_btn_y, hw, BTN_H), "+ Tarea", BTN_G)
-        self.btn_del_tarea = Button((C2_X + PAD + hw + 8,  c_btn_y, hw, BTN_H), "- Tarea", BTN_R)
+        self.btn_add_tarea = Button((C2_X + PAD, c_btn_y, hw, BTN_H), "+ Tarea", BTN_G)
+        self.btn_del_tarea = Button(
+            (C2_X + PAD + hw + 8, c_btn_y, hw, BTN_H), "- Tarea", BTN_R
+        )
 
         self.linea_resultado: LineaProduccion | None = None
 
@@ -229,8 +261,8 @@ class ConfigWindow:
             return
         p = self.procesos_cfg[self.sel_proc]
         self.inp_proc_nombre.text = p["nombre"]
-        self.chk_inicial.checked  = p["es_inicial"]
-        self.chk_final.checked    = p["es_final"]
+        self.chk_inicial.checked = p["es_inicial"]
+        self.chk_final.checked = p["es_final"]
 
     def _load_tarea_to_form(self):
         if self.sel_proc is None or self.sel_tarea is None:
@@ -243,13 +275,15 @@ class ConfigWindow:
 
     def _add_proceso(self):
         n = len(self.procesos_cfg) + 1
-        self.procesos_cfg.append({
-            "nombre":     f"Proceso_{n}",
-            "es_inicial": n == 1,
-            "es_final":   False,
-            "tareas":     [],
-        })
-        self.sel_proc  = len(self.procesos_cfg) - 1
+        self.procesos_cfg.append(
+            {
+                "nombre": f"Proceso_{n}",
+                "es_inicial": n == 1,
+                "es_final": False,
+                "tareas": [],
+            }
+        )
+        self.sel_proc = len(self.procesos_cfg) - 1
         self.sel_tarea = None
         self._load_proc_to_form()
         print(f"[INFO] Proceso_{n} creado.")
@@ -259,14 +293,18 @@ class ConfigWindow:
             return
         nombre = self.procesos_cfg[self.sel_proc]["nombre"]
         self.procesos_cfg.pop(self.sel_proc)
-        self.sel_proc  = min(self.sel_proc, len(self.procesos_cfg) - 1) if self.procesos_cfg else None
+        self.sel_proc = (
+            min(self.sel_proc, len(self.procesos_cfg) - 1)
+            if self.procesos_cfg
+            else None
+        )
         self.sel_tarea = None
         if self.sel_proc is not None:
             self._load_proc_to_form()
         else:
             self.inp_proc_nombre.text = ""
-            self.chk_inicial.checked  = False
-            self.chk_final.checked    = False
+            self.chk_inicial.checked = False
+            self.chk_final.checked = False
         print(f"[INFO] Proceso '{nombre}' eliminado.")
 
     def _move_proc(self, delta: int):
@@ -306,8 +344,10 @@ class ConfigWindow:
                 return
         p = self.procesos_cfg[self.sel_proc]
         p["es_inicial"] = self.chk_inicial.checked
-        p["es_final"]   = self.chk_final.checked
-        print(f"[INFO] '{p['nombre']}': INICIAL={p['es_inicial']}, FINAL={p['es_final']}")
+        p["es_final"] = self.chk_final.checked
+        print(
+            f"[INFO] '{p['nombre']}': INICIAL={p['es_inicial']}, FINAL={p['es_final']}"
+        )
 
     # ── Acciones: tareas ──────────────────────────────────────────────────────
 
@@ -320,7 +360,9 @@ class ConfigWindow:
         tareas.append({"nombre": f"Tarea_{n}", "tiempo": random.randint(1, 15)})
         self.sel_tarea = len(tareas) - 1
         self._load_tarea_to_form()
-        print(f"[INFO] Tarea_{n} agregada a '{self.procesos_cfg[self.sel_proc]['nombre']}'.")
+        print(
+            f"[INFO] Tarea_{n} agregada a '{self.procesos_cfg[self.sel_proc]['nombre']}'."
+        )
 
     def _del_tarea(self):
         if self.sel_proc is None or self.sel_tarea is None:
@@ -340,7 +382,7 @@ class ConfigWindow:
         if self.sel_proc is None or self.sel_tarea is None:
             return
         nombre = self.inp_tarea_nombre.text.strip()
-        t_str  = self.inp_tarea_tiempo.text.strip()
+        t_str = self.inp_tarea_tiempo.text.strip()
         if not nombre:
             print("[ERROR] El nombre de la tarea no puede estar vacio.")
             return
@@ -357,7 +399,7 @@ class ConfigWindow:
 
     def _guardar_json(self):
         data = {
-            "procesos":         self.procesos_cfg,
+            "procesos": self.procesos_cfg,
             "cantidad_ingreso": int(self.inp_cantidad.text or 0),
         }
         with open(self.CONFIG_FILE, "w", encoding="utf-8") as f:
@@ -373,23 +415,29 @@ class ConfigWindow:
         self.procesos_cfg = data.get("procesos", [])
         cantidad = data.get("cantidad_ingreso", 0)
         self.inp_cantidad.text = str(cantidad) if cantidad else ""
-        self.sel_proc  = 0 if self.procesos_cfg else None
+        self.sel_proc = 0 if self.procesos_cfg else None
         self.sel_tarea = None
         if self.sel_proc is not None:
             self._load_proc_to_form()
-        print(f"[INFO] Cargados {len(self.procesos_cfg)} proceso(s), cantidad={cantidad}.")
+        print(
+            f"[INFO] Cargados {len(self.procesos_cfg)} proceso(s), cantidad={cantidad}."
+        )
 
     def _construir_linea(self) -> LineaProduccion | None:
         if not self.procesos_cfg:
             print("[ERROR] No hay procesos definidos.")
             return None
         iniciales = [p for p in self.procesos_cfg if p["es_inicial"]]
-        finales   = [p for p in self.procesos_cfg if p["es_final"]]
+        finales = [p for p in self.procesos_cfg if p["es_final"]]
         if len(iniciales) != 1:
-            print(f"[ERROR] Se requiere exactamente 1 proceso inicial (hay {len(iniciales)}).")
+            print(
+                f"[ERROR] Se requiere exactamente 1 proceso inicial (hay {len(iniciales)})."
+            )
             return None
         if len(finales) != 1:
-            print(f"[ERROR] Se requiere exactamente 1 proceso final (hay {len(finales)}).")
+            print(
+                f"[ERROR] Se requiere exactamente 1 proceso final (hay {len(finales)})."
+            )
             return None
         for pc in self.procesos_cfg:
             if not pc["tareas"]:
@@ -403,9 +451,13 @@ class ConfigWindow:
 
         linea = LineaProduccion("Linea Configurada")
         for pc in self.procesos_cfg:
-            tareas  = [Tarea(t["nombre"], t["tiempo"]) for t in pc["tareas"]]
-            proceso = Proceso(pc["nombre"], tareas,
-                              es_inicial=pc["es_inicial"], es_final=pc["es_final"])
+            tareas = [Tarea(t["nombre"], t["tiempo"]) for t in pc["tareas"]]
+            proceso = Proceso(
+                pc["nombre"],
+                tareas,
+                es_inicial=pc["es_inicial"],
+                es_final=pc["es_final"],
+            )
             linea.agregar_proceso(proceso)
 
         # Conserva la cantidad configurada para reutilizarla en la simulacion.
@@ -417,14 +469,24 @@ class ConfigWindow:
         print(f"  Procesos ({len(linea.procesos)}) en orden:")
         for idx, p in enumerate(linea.procesos):
             flags = []
-            if p.es_inicial: flags.append("INICIAL")
-            if p.es_final:   flags.append("FINAL")
+            if p.es_inicial:
+                flags.append("INICIAL")
+            if p.es_final:
+                flags.append("FINAL")
             flag_s = f"  [{', '.join(flags)}]" if flags else ""
             ant = linea.procesos[idx - 1].nombre if idx > 0 else "ninguno"
-            sig = linea.procesos[idx + 1].nombre if idx + 1 < len(linea.procesos) else "ninguno"
-            print(f"    [{idx + 1}] {p.nombre}{flag_s}  anterior={ant}  siguiente={sig}")
+            sig = (
+                linea.procesos[idx + 1].nombre
+                if idx + 1 < len(linea.procesos)
+                else "ninguno"
+            )
+            print(
+                f"    [{idx + 1}] {p.nombre}{flag_s}  anterior={ant}  siguiente={sig}"
+            )
             for j, t in enumerate(p.tareas):
-                print(f"        tarea[{j + 1}] {t.nombre}  TP={t.tiempo_proceso} ciclos")
+                print(
+                    f"        tarea[{j + 1}] {t.nombre}  TP={t.tiempo_proceso} ciclos"
+                )
         print(f"  Proceso inicial : {linea.get_proceso_inicial().nombre}")
         print(f"  Proceso final   : {linea.get_proceso_final().nombre}")
         print(f"  Productos a ingresar: {cantidad}")
@@ -440,23 +502,27 @@ class ConfigWindow:
         pygame.draw.rect(self.screen, (22, 22, 32), (0, 0, W, HDR_H))
         pygame.draw.line(self.screen, BORDER, (0, HDR_H - 1), (W, HDR_H - 1), 1)
         t = self.font_h.render(
-            "LinProd  -  Configuracion de Linea de Produccion", True, TEXT)
+            "LinProd  -  Configuracion de Linea de Produccion", True, TEXT
+        )
         self.screen.blit(t, (PAD * 2, (HDR_H - t.get_height()) // 2))
         self.btn_maximizar.draw(self.screen, self.font_sm)
 
     def _maximize_to_monitor(self):
         info = pygame.display.Info()
-        self.screen = pygame.display.set_mode((info.current_w, info.current_h), pygame.RESIZABLE)
+        self.screen = pygame.display.set_mode(
+            (info.current_w, info.current_h), pygame.RESIZABLE
+        )
         print("[INFO] Ventana de configuracion maximizada al monitor.")
 
     def _draw_col1(self):
         pygame.draw.rect(self.screen, PANEL, (C1_X, HDR_H, C1_W, CONT_H))
         pygame.draw.line(self.screen, BORDER, (C1_W, HDR_H), (C1_W, H), 1)
 
-        self.screen.blit(self.font_sm.render("PROCESOS", True, ACCENT),
-                         (C1_X + PAD, HDR_H + 6))
+        self.screen.blit(
+            self.font_sm.render("PROCESOS", True, ACCENT), (C1_X + PAD, HDR_H + 6)
+        )
 
-        list_top  = HDR_H + PAD + 18
+        list_top = HDR_H + PAD + 18
         mouse_pos = pygame.mouse.get_pos()
         for i, pc in enumerate(self.procesos_cfg):
             row = pygame.Rect(C1_X + 4, list_top + i * (ROW_H + 2), C1_W - 8, ROW_H)
@@ -464,24 +530,35 @@ class ConfigWindow:
                 pygame.draw.rect(self.screen, SEL_BG, row, border_radius=4)
             elif row.collidepoint(mouse_pos):
                 pygame.draw.rect(self.screen, PANEL2, row, border_radius=4)
-            flags = (" [I]" if pc["es_inicial"] else "") + (" [F]" if pc["es_final"] else "")
+            flags = (" [I]" if pc["es_inicial"] else "") + (
+                " [F]" if pc["es_final"] else ""
+            )
             t = self.font_sm.render(f"{i + 1}. {pc['nombre']}{flags}", True, TEXT)
             self.screen.blit(t, (C1_X + PAD, row.y + (ROW_H - t.get_height()) // 2))
 
-        for btn in (self.btn_add_proc, self.btn_del_proc,
-                    self.btn_up_proc,  self.btn_dn_proc):
+        for btn in (
+            self.btn_add_proc,
+            self.btn_del_proc,
+            self.btn_up_proc,
+            self.btn_dn_proc,
+        ):
             btn.draw(self.screen, self.font_sm)
 
     def _draw_col2(self):
         pygame.draw.rect(self.screen, PANEL2, (C2_X, HDR_H, C2_W, CONT_H))
         pygame.draw.line(self.screen, BORDER, (C2_X + C2_W, HDR_H), (C2_X + C2_W, H), 1)
 
-        proc_nombre = (self.procesos_cfg[self.sel_proc]["nombre"]
-                       if self.sel_proc is not None else "(selecciona proceso)")
-        self.screen.blit(self.font_sm.render(f"TAREAS  -  {proc_nombre}", True, ACCENT),
-                         (C2_X + PAD, HDR_H + 6))
+        proc_nombre = (
+            self.procesos_cfg[self.sel_proc]["nombre"]
+            if self.sel_proc is not None
+            else "(selecciona proceso)"
+        )
+        self.screen.blit(
+            self.font_sm.render(f"TAREAS  -  {proc_nombre}", True, ACCENT),
+            (C2_X + PAD, HDR_H + 6),
+        )
 
-        list_top  = HDR_H + PAD + 18
+        list_top = HDR_H + PAD + 18
         mouse_pos = pygame.mouse.get_pos()
         if self.sel_proc is not None:
             for i, tc in enumerate(self.procesos_cfg[self.sel_proc]["tareas"]):
@@ -491,7 +568,8 @@ class ConfigWindow:
                 elif row.collidepoint(mouse_pos):
                     pygame.draw.rect(self.screen, PANEL, row, border_radius=4)
                 t = self.font_sm.render(
-                    f"{i + 1}. {tc['nombre']}  (TP={tc['tiempo']})", True, TEXT)
+                    f"{i + 1}. {tc['nombre']}  (TP={tc['tiempo']})", True, TEXT
+                )
                 self.screen.blit(t, (C2_X + PAD, row.y + (ROW_H - t.get_height()) // 2))
 
         for btn in (self.btn_add_tarea, self.btn_del_tarea):
@@ -558,10 +636,12 @@ class ConfigWindow:
             row = pygame.Rect(C1_X + 4, list_top + i * (ROW_H + 2), C1_W - 8, ROW_H)
             if row.collidepoint(event.pos):
                 if self.sel_proc != i:
-                    self.sel_proc  = i
+                    self.sel_proc = i
                     self.sel_tarea = None
                     self._load_proc_to_form()
-                    print(f"[INFO] Proceso '{self.procesos_cfg[i]['nombre']}' seleccionado.")
+                    print(
+                        f"[INFO] Proceso '{self.procesos_cfg[i]['nombre']}' seleccionado."
+                    )
                 return
 
         if self.sel_proc is not None:
@@ -586,16 +666,28 @@ class ConfigWindow:
         return (self.inp_cantidad,)
 
     def _all_inputs(self):
-        return (self.inp_proc_nombre, self.inp_tarea_nombre,
-                self.inp_tarea_tiempo, self.inp_cantidad)
+        return (
+            self.inp_proc_nombre,
+            self.inp_tarea_nombre,
+            self.inp_tarea_tiempo,
+            self.inp_cantidad,
+        )
 
     def _all_buttons(self):
-        return (self.btn_add_proc,  self.btn_del_proc,
-                self.btn_up_proc,   self.btn_dn_proc,
-                self.btn_add_tarea, self.btn_del_tarea,
-                self.btn_proc_ok,   self.btn_tarea_ok,
-                self.btn_guardar,   self.btn_cargar,
-                self.btn_construir, self.btn_maximizar)
+        return (
+            self.btn_add_proc,
+            self.btn_del_proc,
+            self.btn_up_proc,
+            self.btn_dn_proc,
+            self.btn_add_tarea,
+            self.btn_del_tarea,
+            self.btn_proc_ok,
+            self.btn_tarea_ok,
+            self.btn_guardar,
+            self.btn_cargar,
+            self.btn_construir,
+            self.btn_maximizar,
+        )
 
     def run(self) -> LineaProduccion | None:
         running = True
@@ -664,9 +756,10 @@ class ConfigWindow:
 
 # ── Punto de entrada ──────────────────────────────────────────────────────────
 
+
 def main():
     ventana = ConfigWindow()
-    linea   = ventana.run()
+    linea = ventana.run()
     print()
     if linea is not None:
         print("=" * 58)
