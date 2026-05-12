@@ -1,34 +1,42 @@
 class Proceso:
     def __init__(self, nombre, tareas, es_inicial=False, es_final=False):
+        nombre = str(nombre).strip()
+        if not nombre:
+            raise ValueError("El nombre del proceso no puede estar vacio")
+
         self.nombre = nombre
-        self.nombre_proceso = nombre
-        self.tareas = tareas
-        self.es_inicial = es_inicial
-        self.es_final = es_final
+        self.tareas = list(tareas)
+        if not self.tareas:
+            raise ValueError("Cada proceso debe tener al menos una tarea")
+
+        self.es_inicial = bool(es_inicial)
+        self.es_final = bool(es_final)
 
         # Enlaces de la línea de producción
         self.siguiente_proceso = None
         self.proceso_anterior = None
 
-        # Conectar cada tarea con el proceso y encadenarlas en orden
         for i, tarea in enumerate(self.tareas):
             tarea.proceso = self
-            if i + 1 < len(self.tareas):
-                tarea.siguiente_tarea = self.tareas[i + 1]
-            else:
-                tarea.siguiente_tarea = None
+            tarea.siguiente_tarea = self.tareas[i + 1] if i + 1 < len(self.tareas) else None
+
+    @property
+    def nombre_proceso(self):
+        """Alias de compatibilidad para consumidores existentes."""
+        return self.nombre
 
     def conectar_siguiente(self, otro_proceso):
         """Enlaza este proceso con el siguiente, de forma bidireccional."""
+        if otro_proceso is None:
+            raise ValueError("El proceso siguiente no puede ser None")
+        if otro_proceso is self:
+            raise ValueError("Un proceso no puede conectarse consigo mismo")
+
         self.siguiente_proceso = otro_proceso
         otro_proceso.proceso_anterior = self
 
     def recibir_producto(self, producto):
         """Recibe un producto y lo envía a la primera tarea del proceso."""
-        if not self.tareas:
-            if self.siguiente_proceso is not None:
-                self.siguiente_proceso.recibir_producto(producto)
-            return
         self.tareas[0].recibir_producto(producto)
 
     def entregar_siguiente(self, producto, tiempo_actual):
@@ -48,6 +56,10 @@ class Proceso:
         """
         for tarea in reversed(self.tareas):
             tarea.tick(tiempo_actual)
+
+    def reiniciar(self):
+        for tarea in self.tareas:
+            tarea.reiniciar()
 
     def get_primera_tarea(self):
         return self.tareas[0] if self.tareas else None

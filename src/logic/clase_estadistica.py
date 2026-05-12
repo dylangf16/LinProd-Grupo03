@@ -2,10 +2,15 @@ class Estadisticas:
     def __init__(self, linea):
         self.linea = linea
 
+    def _productos_finalizados(self):
+        return [
+            producto
+            for producto in self.linea.productos
+            if producto.tiempo_salida is not None
+        ]
+
     def cantidad_productos_procesados(self):
-        return sum(
-            1 for producto in self.linea.productos if producto.estado == "finalizado"
-        )
+        return sum(1 for producto in self.linea.productos if producto.esta_finalizado())
 
     def tiempo_total_simulacion(self):
         return self.linea.tiempo_actual
@@ -50,11 +55,7 @@ class Estadisticas:
         return tarea_mayor.nombre
 
     def tiempo_primer_producto(self):
-        finalizados = [
-            producto
-            for producto in self.linea.productos
-            if producto.tiempo_salida is not None
-        ]
+        finalizados = self._productos_finalizados()
 
         if not finalizados:
             return None
@@ -62,11 +63,7 @@ class Estadisticas:
         return min(producto.tiempo_salida for producto in finalizados)
 
     def tiempo_ultimo_producto(self):
-        finalizados = [
-            producto
-            for producto in self.linea.productos
-            if producto.tiempo_salida is not None
-        ]
+        finalizados = self._productos_finalizados()
 
         if not finalizados:
             return None
@@ -74,11 +71,7 @@ class Estadisticas:
         return max(producto.tiempo_salida for producto in finalizados)
 
     def tiempo_promedio_finalizacion(self):
-        finalizados = [
-            producto
-            for producto in self.linea.productos
-            if producto.tiempo_salida is not None
-        ]
+        finalizados = self._productos_finalizados()
 
         if not finalizados:
             return 0
@@ -90,11 +83,7 @@ class Estadisticas:
         return sum(tiempos) / len(tiempos)
 
     def tiempo_total_procesamiento(self):
-        finalizados = [
-            producto
-            for producto in self.linea.productos
-            if producto.tiempo_salida is not None
-        ]
+        finalizados = self._productos_finalizados()
 
         if not finalizados:
             return 0
