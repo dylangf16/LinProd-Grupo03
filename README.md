@@ -5,6 +5,13 @@ Simulador de línea de producción con procesos, tareas, productos, animación
 en tiempo real y reporte estadístico final. Implementado 100% en Python con
 Pygame para la interfaz gráfica.
 
+## Decisiones de dominio
+
+- `Proceso` y `Tarea` se modelan por **composición intencional** (no herencia). Cada proceso contiene una lista de tareas y cada tarea mantiene referencia a su proceso padre.
+- La línea se representa como una estructura encadenada simple entre procesos (`proceso_anterior` / `siguiente_proceso`) y dentro de cada proceso (`siguiente_tarea`).
+
+Este enfoque mantiene el modelo claro y suficiente para el alcance del proyecto.
+
 ## Requisitos previos
 
 - Python 3.13.13 instalado ([descargar aquí](https://www.python.org/downloads/release/python-31313/))

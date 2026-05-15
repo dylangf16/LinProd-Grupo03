@@ -1,9 +1,13 @@
 class Estadisticas:
+    """Calcula métricas agregadas de una línea de producción simulada."""
+
     def __init__(self, linea):
+        """Asocia el objeto de estadísticas a una instancia de línea."""
         self.linea = linea
 
     @staticmethod
     def _es_tarea_entrada_inicial(proceso, indice_tarea, incluir_entrada_inicial):
+        """Determina si debe excluirse la tarea de entrada del proceso inicial."""
         return (
             not incluir_entrada_inicial
             and getattr(proceso, "es_inicial", False)
@@ -11,6 +15,7 @@ class Estadisticas:
         )
 
     def _productos_finalizados(self):
+        """Retorna solo los productos que ya tienen tiempo de salida."""
         return [
             producto
             for producto in self.linea.productos
@@ -18,12 +23,15 @@ class Estadisticas:
         ]
 
     def cantidad_productos_procesados(self):
+        """Cuenta cuántos productos terminaron completamente."""
         return sum(1 for producto in self.linea.productos if producto.esta_finalizado())
 
     def tiempo_total_simulacion(self):
+        """Devuelve el tiempo actual de la simulación en ciclos."""
         return self.linea.tiempo_actual
 
     def estadisticas_por_proceso(self, incluir_entrada_inicial=False):
+        """Retorna un resumen por proceso con tareas y espera acumulada."""
         resultados = []
 
         for proceso in self.linea.procesos:
@@ -46,6 +54,7 @@ class Estadisticas:
         return resultados
 
     def tarea_mayor_concentracion_espera(self, incluir_entrada_inicial=False):
+        """Retorna el nombre de la tarea que más concentra espera."""
         tarea_mayor = None
         mayor_veces = -1
         mayor_acumulado = -1
@@ -73,6 +82,7 @@ class Estadisticas:
         return tarea_mayor.nombre
 
     def tiempo_primer_producto(self):
+        """Retorna el ciclo en que finalizó el primer producto."""
         finalizados = self._productos_finalizados()
 
         if not finalizados:
@@ -81,6 +91,7 @@ class Estadisticas:
         return min(producto.tiempo_salida for producto in finalizados)
 
     def tiempo_ultimo_producto(self):
+        """Retorna el ciclo en que finalizó el último producto."""
         finalizados = self._productos_finalizados()
 
         if not finalizados:
@@ -89,6 +100,7 @@ class Estadisticas:
         return max(producto.tiempo_salida for producto in finalizados)
 
     def tiempo_promedio_finalizacion(self):
+        """Retorna el tiempo promedio de permanencia por producto finalizado."""
         finalizados = self._productos_finalizados()
 
         if not finalizados:
@@ -101,6 +113,7 @@ class Estadisticas:
         return sum(tiempos) / len(tiempos)
 
     def tiempo_total_procesamiento(self):
+        """Retorna la suma de tiempos de permanencia de todos los finalizados."""
         finalizados = self._productos_finalizados()
 
         if not finalizados:
@@ -111,6 +124,7 @@ class Estadisticas:
         )
 
     def proceso_mayor_congestion(self, incluir_entrada_inicial=False):
+        """Retorna el proceso con mayor espera acumulada entre sus tareas."""
         proceso_mayor = None
         mayor_espera = -1
 
@@ -134,6 +148,7 @@ class Estadisticas:
         return proceso_mayor.nombre
 
     def promedio_espera_tareas(self):
+        """Calcula la espera promedio por inicio de tarea en toda la línea."""
         total_espera = 0
         total_inicios = 0
 
@@ -171,6 +186,7 @@ class Estadisticas:
         return sum(utilizaciones) / len(utilizaciones)
 
     def proceso_y_tarea_mayor_espera(self, incluir_entrada_inicial=False):
+        """Retorna el par proceso-tarea con mayor espera acumulada."""
         proceso_resultado = None
         tarea_resultado = None
         mayor_espera = -1
@@ -195,6 +211,7 @@ class Estadisticas:
         return f"{proceso_resultado.nombre} - {tarea_resultado.nombre}"
 
     def mostrar_resumen(self):
+        """Imprime en consola un reporte general de métricas de la línea."""
         print()
         print("========== ESTADÍSTICAS ==========")
 

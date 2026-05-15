@@ -1,5 +1,13 @@
 class Tarea:
+    """Unidad mínima de trabajo de un proceso.
+
+    Esta clase participa por composición dentro de `Proceso`: una tarea
+    conoce a su proceso padre mediante `self.proceso`, pero no hay relación
+    de herencia entre ambas clases.
+    """
+
     def __init__(self, nombre, tiempo_proceso):
+        """Crea una tarea con duración fija de procesamiento por producto."""
         nombre = str(nombre).strip()
         if not nombre:
             raise ValueError("El nombre de la tarea no puede estar vacio")
@@ -53,10 +61,12 @@ class Tarea:
 
     @property
     def es_inicial(self):
+        """Indica si el proceso padre está marcado como inicial."""
         return bool(self.proceso.es_inicial) if self.proceso is not None else False
 
     @property
     def es_final(self):
+        """Indica si el proceso padre está marcado como final."""
         return bool(self.proceso.es_final) if self.proceso is not None else False
 
     def recibir_producto(self, producto):
@@ -97,18 +107,23 @@ class Tarea:
             self._iniciar_procesamiento(siguiente)
 
     def esta_libre(self):
+        """Retorna True si la tarea no está procesando ningún producto."""
         return not self.esta_procesando
 
     def cantidad_en_espera(self):
+        """Retorna cuántos productos hay en cola de espera."""
         return len(self.contenido_esperando)
 
     def veces_con_espera(self):
+        """Cuenta cuántos ticks tuvieron al menos un producto en espera."""
         return sum(1 for ce in self.historial_espera if ce > 0)
 
     def total_espera_acumulada(self):
+        """Suma acumulada de productos en cola a lo largo del tiempo."""
         return sum(self.historial_espera)
 
     def ticks_ocupada(self):
+        """Cantidad de ticks en que la tarea estuvo ocupada."""
         return sum(1 for ocup in self.historial_ocupacion if ocup)
 
     def utilizacion(self):
@@ -118,6 +133,7 @@ class Tarea:
         return self.ticks_ocupada() / len(self.historial_ocupacion)
 
     def reiniciar(self):
+        """Limpia estado operativo e historial para iniciar otra simulación."""
         self.esta_procesando = False
         self.producto_actual = None
         self.ticks_restantes = 0
@@ -127,6 +143,7 @@ class Tarea:
         self.total_inicios = 0
 
     def __str__(self):
+        """Devuelve una representación textual breve del estado de la tarea."""
         en_proceso = "Si" if self.esta_procesando else "No"
         return (
             f"Tarea {self.nombre} | "

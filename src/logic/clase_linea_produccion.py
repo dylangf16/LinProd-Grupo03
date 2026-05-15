@@ -2,7 +2,10 @@ from clase_producto import Producto
 
 
 class LineaProduccion:
+    """Representa una línea de producción lineal compuesta por procesos encadenados."""
+
     def __init__(self, nombre="Linea"):
+        """Inicializa la línea sin procesos ni productos cargados."""
         self.nombre = nombre
         self.procesos = []
         self.productos = []  # productos inyectados a la línea
@@ -49,9 +52,11 @@ class LineaProduccion:
         self.pausada = False
 
     def get_proceso_inicial(self):
+        """Retorna el proceso marcado como inicial, o None si no existe."""
         return next((p for p in self.procesos if p.es_inicial), None)
 
     def get_proceso_final(self):
+        """Retorna el proceso marcado como final, o None si no existe."""
         return next((p for p in self.procesos if p.es_final), None)
 
     def cargar_productos(self, cantidad):
@@ -103,9 +108,11 @@ class LineaProduccion:
             self.tick()
 
     def pausar(self):
+        """Pone la línea en pausa; `tick` no avanza mientras esté pausada."""
         self.pausada = True
 
     def reanudar(self):
+        """Quita la pausa de la línea para permitir que avance el tiempo."""
         self.pausada = False
 
     def todos_finalizados(self):
@@ -167,6 +174,7 @@ class LineaProduccion:
         print(self.estado_completo_texto())
 
     def __str__(self):
+        """Devuelve una representación corta y legible de la línea."""
         return (
             f"LineaProduccion {self.nombre} "
             f"({len(self.procesos)} procesos, T={self.tiempo_actual})"
