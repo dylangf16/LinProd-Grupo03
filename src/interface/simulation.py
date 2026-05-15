@@ -22,6 +22,7 @@ if str(ROOT) not in sys.path:
 if str(ROOT / "src" / "logic") not in sys.path:
     sys.path.insert(0, str(ROOT / "src" / "logic"))
 
+from src.interface.final_report import FinalReportWindow
 from src.logic.clase_linea_produccion import LineaProduccion
 
 # ------------------------------ Estilos y layout ------------------------------
@@ -361,6 +362,7 @@ class SimulationWindow:
 
         self.running = True
         self.next_action = "exit"
+        self.finish_reason: str | None = None
         self.playing = False
         self.cycle_ms = 460
         self.accumulator_ms = 0.0
@@ -376,6 +378,7 @@ class SimulationWindow:
         self.sim_panel_rect = pygame.Rect(0, 0, 1, 1)
         self.summary_rect = pygame.Rect(0, 0, 1, 1)
         self.metadata_rect = pygame.Rect(0, 0, 1, 1)
+        self.legend_rect = pygame.Rect(0, 0, 1, 1)
 
         self.process_rects: list[pygame.Rect] = []
         self.task_rects: dict[tuple[int, int], pygame.Rect] = {}
@@ -552,6 +555,16 @@ class SimulationWindow:
         btn_base_y = self.sidebar_rect.bottom - INNER_PAD - btn_area_h
         btn_w = self.sidebar_rect.w - INNER_PAD * 2
 
+        legend_top = self.metadata_rect.bottom + 12
+        legend_bottom = btn_base_y - 12
+        legend_h = max(0, legend_bottom - legend_top)
+        self.legend_rect = pygame.Rect(
+            self.summary_rect.x,
+            legend_top,
+            self.summary_rect.w,
+            legend_h,
+        )
+
         for idx, button in enumerate(self.buttons):
             y = btn_base_y + idx * (45 + 10)
             button.set_rect(pygame.Rect(self.sidebar_rect.x + INNER_PAD, y, btn_w, 45))
@@ -599,8 +612,11 @@ class SimulationWindow:
 
         width_line = len(procesos) * PROC_W + max(0, len(procesos) - 1) * PROC_GAP
         finish_w = 260
+        finish_h = 164
         world_w = start_x + width_line + PROC_GAP + finish_w + 110
-        world_h = tasks_y + max_tareas * (TASK_H + TASK_GAP) + 110
+        tasks_h = tasks_y + max_tareas * (TASK_H + TASK_GAP) + 110
+        finish_h_total = tasks_y + finish_h + 110
+        world_h = max(tasks_h, finish_h_total)
 
         self.world_w = max(world_w, self.view_rect.w)
         self.world_h = max(world_h, self.view_rect.h)
@@ -620,8 +636,7 @@ class SimulationWindow:
                 self.task_rects[(i, j)] = pygame.Rect(tx, ty, TASK_W, TASK_H)
 
         fx = start_x + width_line + PROC_GAP
-        fh = max(TASK_H * 2, max_tareas * (TASK_H + TASK_GAP) - TASK_GAP)
-        self.finish_rect = pygame.Rect(fx, tasks_y, finish_w, fh)
+        self.finish_rect = pygame.Rect(fx, tasks_y, finish_w, finish_h)
 
         self.hbar.set_lengths(self.world_w, self.view_rect.w)
         self.vbar.set_lengths(self.world_h, self.view_rect.h)
@@ -687,18 +702,8 @@ class SimulationWindow:
         return x, y
 
     def _finish_slot(self, pid: int) -> tuple[int, int]:
-        order = self.completion_order.get(pid, 0)
-        if order == 0:
-            return self.finish_rect.left + 64, self.finish_rect.top + 56
-
-        idx = order - 1
-        columns = max(1, (self.finish_rect.w - 170) // 28)
-        row = idx // columns
-        col = idx % columns
-
-        x = self.finish_rect.left + 150 + col * 28
-        y = self.finish_rect.top + 42 + row * 28
-        return x, y
+        _ = pid
+        return self.finish_rect.centerx, self.finish_rect.top + 84
 
     def _location_to_point(self, pid: int, loc: tuple | None) -> tuple[int, int]:
         if not loc:
@@ -777,6 +782,9 @@ class SimulationWindow:
 
         if self.linea.todos_finalizados():
             self.playing = False
+            if self.finish_reason is None:
+                self.finish_reason = "finished_auto"
+            self.running = False
 
     def _start_play(self):
         if self.linea.todos_finalizados():
@@ -798,6 +806,41 @@ class SimulationWindow:
     def _show_toast(self, message: str, ms: int = 2400):
         self.toast_message = message
         self.toast_deadline_ms = pygame.time.get_ticks() + ms
+
+    def _estimated_finish_cycles(self) -> int:
+        total_tareas = sum(len(proceso.tareas) for proceso in self.linea.procesos)
+        max_tp = max(
+            (
+                tarea.tiempo_proceso
+                for proceso in self.linea.procesos
+                for tarea in proceso.tareas
+            ),
+            default=1,
+        )
+        total_productos = max(1, len(self.linea.productos))
+
+        # Cota superior conservadora para completar el lote al acelerar.
+        return max(10000, total_tareas * max_tp * total_productos * 4)
+
+    def _finish_to_end(self):
+        if self.linea.todos_finalizados():
+            self.finish_reason = "finished_button"
+            self.running = False
+            return
+
+        self.playing = False
+        self.accumulator_ms = 0.0
+
+        self.linea.reanudar()
+        budget = self._estimated_finish_cycles()
+        self.linea.correr(max_ciclos=budget)
+
+        if not self.linea.todos_finalizados():
+            self.linea.correr(max_ciclos=budget * 4)
+
+        self.linea.pausar()
+        self.finish_reason = "finished_button"
+        self.running = False
 
     def _take_snapshot(self):
         captures_dir = self.assets_dir / "capturas"
@@ -858,7 +901,7 @@ class SimulationWindow:
             elif self.btn_snapshot.clicked(event):
                 self._take_snapshot()
             elif self.btn_finish.clicked(event):
-                self.running = False
+                self._finish_to_end()
 
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_SPACE:
@@ -941,6 +984,37 @@ class SimulationWindow:
                 (self.metadata_rect.right - 16 - val_txt.get_width(), y + 2),
             )
             y += row_h
+
+        if self.legend_rect.h >= 68:
+            _draw_rounded_rect(
+                self.screen,
+                self.legend_rect,
+                CARD_SOFT,
+                radius=12,
+                border_color=PANEL_BORDER,
+                border_width=1,
+            )
+
+            icon_size = 20
+            icon_proc = pygame.transform.smoothscale(
+                self.asset_process_icon, (icon_size, icon_size)
+            )
+            icon_queue = pygame.transform.smoothscale(
+                self.asset_queue_icon, (icon_size, icon_size)
+            )
+
+            row1_y = self.legend_rect.y + 12
+            row2_y = row1_y + 30
+            icon_x = self.legend_rect.x + 14
+            text_x = icon_x + icon_size + 10
+
+            self.screen.blit(icon_proc, (icon_x, row1_y))
+            txt_proc = self.font_sm.render("Flecha verde: en proceso", True, TEXT_MID)
+            self.screen.blit(txt_proc, (text_x, row1_y + 1))
+
+            self.screen.blit(icon_queue, (icon_x, row2_y))
+            txt_queue = self.font_sm.render("Flecha azul: en cola", True, TEXT_MID)
+            self.screen.blit(txt_queue, (text_x, row2_y + 1))
 
         self.btn_start.enabled = (not self.playing) and (
             not self.linea.todos_finalizados()
@@ -1049,32 +1123,19 @@ class SimulationWindow:
         self.world.blit(fin_title, (self.finish_rect.x + 16, self.finish_rect.y + 14))
 
         fin_total = sum(1 for p in self.linea.productos if p.estado == "finalizado")
-        fin_txt = self.font_sm.render(
-            f"Total: {fin_total}/{len(self.linea.productos)}",
-            True,
-            TEXT_DARK,
+
+        if fin_total == 0:
+            slot_x, slot_y = self._finish_slot(0)
+            placeholder_icon = self.asset_process_icon.copy()
+            placeholder_icon.set_alpha(95)
+            p_rect = placeholder_icon.get_rect(center=(slot_x, slot_y))
+            self.world.blit(placeholder_icon, p_rect.topleft)
+
+        fin_txt = self.font_sm.render(f"Terminados: {fin_total}", True, TEXT_DARK)
+        fin_txt_rect = fin_txt.get_rect(
+            center=(self.finish_rect.centerx, self.finish_rect.bottom - 26)
         )
-        self.world.blit(fin_txt, (self.finish_rect.x + 16, self.finish_rect.y + 44))
-
-        if self.first_finished_id is not None:
-            first_txt = self.font_sm.render(
-                f"Visible: Producto {self.first_finished_id}",
-                True,
-                TEXT_MID,
-            )
-            self.world.blit(
-                first_txt, (self.finish_rect.x + 16, self.finish_rect.y + 70)
-            )
-
-        if self.hidden_finished_count > 0:
-            hidden_txt = self.font_sm.render(
-                f"Ocultos: {self.hidden_finished_count}",
-                True,
-                TEXT_MID,
-            )
-            self.world.blit(
-                hidden_txt, (self.finish_rect.x + 16, self.finish_rect.y + 92)
-            )
+        self.world.blit(fin_txt, fin_txt_rect.topleft)
 
         for sprite in self.product_sprites.values():
             if not sprite.visible:
@@ -1148,13 +1209,19 @@ class SimulationWindow:
             dt = self.clock.tick(60)
             self._handle_events()
 
+            if not self.running:
+                break
+
             if self.playing and not self.linea.todos_finalizados():
                 self.accumulator_ms += dt
-                while self.accumulator_ms >= self.cycle_ms:
+                while self.accumulator_ms >= self.cycle_ms and self.running:
                     self._advance_tick()
                     self.accumulator_ms -= self.cycle_ms
             else:
                 self.accumulator_ms = min(self.accumulator_ms, self.cycle_ms)
+
+            if not self.running:
+                break
 
             for sprite in self.product_sprites.values():
                 hidden_now = sprite.update(dt)
@@ -1162,6 +1229,10 @@ class SimulationWindow:
                     self.hidden_finished_count += 1
 
             self.draw()
+
+        if self.finish_reason in {"finished_button", "finished_auto"}:
+            report = FinalReportWindow(self.linea, finish_reason=self.finish_reason)
+            report.run()
 
         pygame.quit()
         return self.next_action
