@@ -155,6 +155,14 @@ class FinalReportWindow:
             ),
         ]
 
+    def _extra_stat(self) -> tuple[str, str]:
+        """Estadistica adicional propuesta por el grupo."""
+        pct = self.stats.utilizacion_promedio_tareas() * 100
+        return (
+            "Utilizacion promedio de tareas",
+            f"{pct:.1f}%",
+        )
+
     # ------------------------------- Dibujo --------------------------------
 
     def _draw_metric_cards(
@@ -178,6 +186,7 @@ class FinalReportWindow:
         col_w = (left_rect.w - col_gap) // 2
 
         card_h = 66
+        rows_count = (len(rows) + 1) // 2
         for idx, (label, value) in enumerate(rows):
             col = idx % 2
             row = idx // 2
@@ -199,6 +208,30 @@ class FinalReportWindow:
             val = self.font_b.render(value, True, TEXT_DARK)
             self.screen.blit(lbl, (card.x + 10, card.y + 8))
             self.screen.blit(val, (card.x + 10, card.y + 30))
+
+        # Estadistica adicional propuesta por el grupo: ocupa todo el ancho y
+        # se destaca con la paleta acento para diferenciarla de las metricas
+        # solicitadas por el enunciado.
+        extra_label, extra_value = self._extra_stat()
+        extra_top = grid_top + rows_count * (card_h + row_gap)
+        extra_card = pygame.Rect(left_rect.x, extra_top, left_rect.w, card_h)
+        _draw_rounded_rect(
+            self.screen,
+            extra_card,
+            BTN_FILL,
+            radius=10,
+            border_color=BTN_BORDER,
+            border_width=1,
+        )
+        badge = self.font_sm.render("Estadistica del grupo", True, BTN_TEXT)
+        self.screen.blit(badge, (extra_card.x + 10, extra_card.y + 8))
+        extra_lbl = self.font_sm.render(extra_label, True, TEXT_SOFT)
+        extra_val = self.font_b.render(extra_value, True, ACCENT)
+        self.screen.blit(
+            extra_lbl,
+            (extra_card.x + 10 + badge.get_width() + 10, extra_card.y + 8),
+        )
+        self.screen.blit(extra_val, (extra_card.x + 10, extra_card.y + 30))
 
         status_msg = "Fin por boton Finalizar"
         status_color = WARN

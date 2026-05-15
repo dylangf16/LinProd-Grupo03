@@ -1132,6 +1132,28 @@ class ConfigWindow:
         if 0 <= index < len(self.procesos_cfg):
             self.procesos_cfg.pop(index)
 
+    def _swap_visual_neighbors(self, visual_idx_a: int, visual_idx_b: int):
+        """Intercambia, en procesos_cfg, los procesos que ocupan dos posiciones
+        visuales contiguas. Se usa para reordenar procesos intermedios desde
+        la GUI sin tocar el proceso inicial ni el final, que siempre quedan en
+        los extremos por _ordered_cfg_for_build/_visual_process_order_indices.
+        """
+        visual = self._visual_process_order_indices()
+        if not (0 <= visual_idx_a < len(visual) and 0 <= visual_idx_b < len(visual)):
+            return
+        cfg_idx_a = visual[visual_idx_a]
+        cfg_idx_b = visual[visual_idx_b]
+        proc_a = self.procesos_cfg[cfg_idx_a]
+        proc_b = self.procesos_cfg[cfg_idx_b]
+        if proc_a.get("es_inicial") or proc_a.get("es_final"):
+            return
+        if proc_b.get("es_inicial") or proc_b.get("es_final"):
+            return
+        self.procesos_cfg[cfg_idx_a], self.procesos_cfg[cfg_idx_b] = (
+            self.procesos_cfg[cfg_idx_b],
+            self.procesos_cfg[cfg_idx_a],
+        )
+
     def _draw_header(self, layout: dict):
         rect = layout["header"]
         if self.header_bg is not None:
@@ -1176,7 +1198,15 @@ class ConfigWindow:
             self.screen.blit(txt, (members_x, current_y))
             current_y += txt.get_height() + line_gap
 
-    def _draw_process_card(self, proc_idx: int, proc_cfg: dict, rect: pygame.Rect):
+    def _draw_process_card(
+        self,
+        proc_idx: int,
+        proc_cfg: dict,
+        rect: pygame.Rect,
+        visual_idx: int,
+        can_move_left: bool,
+        can_move_right: bool,
+    ):
         hovered = proc_idx == self.hover_card_index
         border_col = CARD_BORDER_HOVER if hovered else CARD_BORDER
 
@@ -1249,14 +1279,72 @@ class ConfigWindow:
         edit_rect.center = edit_center
         del_rect.center = del_center
 
+        # Botones de reordenar (chevron izq/der) en la esquina inferior-izquierda.
+        # Solo aparecen para procesos intermedios que tienen un vecino tambien
+        # intermedio con el que intercambiarse. El proceso inicial siempre queda
+        # primero y el final siempre al ultimo en _ordered_cfg_for_build, asi
+        # que no tiene sentido reordenarlos aqui.
+        arrow_radius = max(14, int(20 * self.ui_scale))
+        left_center = (
+            rect.x + max(28, int(40 * self.ui_scale)) + arrow_radius,
+            del_center[1],
+        )
+        right_center = (
+            left_center[0] + arrow_radius * 2 + max(8, int(10 * self.ui_scale)),
+            del_center[1],
+        )
+
+        left_rect = pygame.Rect(0, 0, arrow_radius * 2, arrow_radius * 2)
+        right_rect = pygame.Rect(0, 0, arrow_radius * 2, arrow_radius * 2)
+        left_rect.center = left_center
+        right_rect.center = right_center
+
+        if can_move_left:
+            _draw_smooth_circle(self.screen, left_center, arrow_radius, BLUE_SOFT)
+            self._draw_chevron(
+                self.screen, left_center, arrow_radius, BLUE_ACTION, "left"
+            )
+        if can_move_right:
+            _draw_smooth_circle(self.screen, right_center, arrow_radius, BLUE_SOFT)
+            self._draw_chevron(
+                self.screen, right_center, arrow_radius, BLUE_ACTION, "right"
+            )
+
         self.card_hitboxes.append(
             {
                 "index": proc_idx,
+                "visual_idx": visual_idx,
                 "rect": rect,
                 "edit": edit_rect,
                 "delete": del_rect,
+                "move_left": left_rect if can_move_left else None,
+                "move_right": right_rect if can_move_right else None,
             }
         )
+
+    def _draw_chevron(
+        self,
+        surf: pygame.Surface,
+        center: tuple[int, int],
+        radius: int,
+        color: tuple[int, int, int],
+        direction: str,
+    ):
+        cx, cy = center
+        size = max(5, radius // 2)
+        if direction == "left":
+            points = [
+                (cx + size // 2, cy - size),
+                (cx - size // 2 - 1, cy),
+                (cx + size // 2, cy + size),
+            ]
+        else:
+            points = [
+                (cx - size // 2, cy - size),
+                (cx + size // 2 + 1, cy),
+                (cx - size // 2, cy + size),
+            ]
+        pygame.draw.polygon(surf, color, points)
 
     def _draw_processes(self, layout: dict):
         cards_clip: pygame.Rect = layout["cards_clip"]
@@ -1283,6 +1371,9 @@ class ConfigWindow:
         prev_clip = self.screen.get_clip()
         self.screen.set_clip(cards_clip)
 
+        def _is_swappable(cfg: dict) -> bool:
+            return not (cfg.get("es_inicial") or cfg.get("es_final"))
+
         for visual_idx, proc_idx in enumerate(visual_indices):
             proc_cfg = self.procesos_cfg[proc_idx]
             x_in_content = visual_idx * (card_w + gap)
@@ -1294,7 +1385,25 @@ class ConfigWindow:
                 or draw_rect.left > cards_clip.right + 10
             ):
                 continue
-            self._draw_process_card(proc_idx, proc_cfg, draw_rect)
+
+            can_left = False
+            can_right = False
+            if _is_swappable(proc_cfg):
+                if visual_idx > 0:
+                    prev_cfg = self.procesos_cfg[visual_indices[visual_idx - 1]]
+                    can_left = _is_swappable(prev_cfg)
+                if visual_idx + 1 < len(visual_indices):
+                    next_cfg = self.procesos_cfg[visual_indices[visual_idx + 1]]
+                    can_right = _is_swappable(next_cfg)
+
+            self._draw_process_card(
+                proc_idx,
+                proc_cfg,
+                draw_rect,
+                visual_idx=visual_idx,
+                can_move_left=can_left,
+                can_move_right=can_right,
+            )
 
         self.screen.set_clip(prev_clip)
 
@@ -1557,6 +1666,16 @@ class ConfigWindow:
                     return
                 if hb["edit"].collidepoint(event.pos):
                     self._open_process_modal(hb["index"])
+                    return
+                if hb.get("move_left") is not None and hb["move_left"].collidepoint(
+                    event.pos
+                ):
+                    self._swap_visual_neighbors(hb["visual_idx"], hb["visual_idx"] - 1)
+                    return
+                if hb.get("move_right") is not None and hb["move_right"].collidepoint(
+                    event.pos
+                ):
+                    self._swap_visual_neighbors(hb["visual_idx"], hb["visual_idx"] + 1)
                     return
 
         if self.btn_add_proc.clicked(event):

@@ -25,6 +25,7 @@ class Tarea:
 
         # Historial para estadisticas
         self.historial_espera = []
+        self.historial_ocupacion = []  # True si la tarea estaba procesando en cada tick
         self.total_inicios = 0
 
     @property
@@ -78,6 +79,7 @@ class Tarea:
         quedar libre, atiende al siguiente en cola dentro del mismo tick.
         """
         self.historial_espera.append(self.cantidad_en_espera())
+        self.historial_ocupacion.append(self.esta_procesando)
         if self.esta_procesando:
             self.ticks_restantes -= 1
             if self.ticks_restantes <= 0:
@@ -106,19 +108,31 @@ class Tarea:
     def total_espera_acumulada(self):
         return sum(self.historial_espera)
 
+    def ticks_ocupada(self):
+        return sum(1 for ocup in self.historial_ocupacion if ocup)
+
+    def utilizacion(self):
+        """Fraccion del tiempo simulado que la tarea estuvo procesando (0.0 - 1.0)."""
+        if not self.historial_ocupacion:
+            return 0.0
+        return self.ticks_ocupada() / len(self.historial_ocupacion)
+
     def reiniciar(self):
         self.esta_procesando = False
         self.producto_actual = None
         self.ticks_restantes = 0
         self.contenido_esperando.clear()
         self.historial_espera.clear()
+        self.historial_ocupacion.clear()
         self.total_inicios = 0
 
     def __str__(self):
-        ep = "S" if self.esta_procesando else "N"
+        en_proceso = "Si" if self.esta_procesando else "No"
         return (
             f"Tarea {self.nombre} | "
-            f"TP={self.tiempo_proceso}, EP={ep}, CE={self.cantidad_en_espera()}"
+            f"Tiempo proceso={self.tiempo_proceso}, "
+            f"En proceso={en_proceso}, "
+            f"En cola={self.cantidad_en_espera()}"
         )
 
     def __repr__(self):

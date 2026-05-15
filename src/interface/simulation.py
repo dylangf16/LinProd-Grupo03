@@ -348,9 +348,9 @@ class SimulationWindow:
         self.font_b = pygame.font.SysFont("Segoe UI", 18, bold=True)
         self.font_sm = pygame.font.SysFont("Segoe UI", 14)
         self.font_proc_name = pygame.font.SysFont("Segoe UI", 19, bold=True)
-        self.font_proc_meta = pygame.font.SysFont("Segoe UI", 8)
-        self.font_task_name = pygame.font.SysFont("Segoe UI", 16)
-        self.font_task_meta = pygame.font.SysFont("Segoe UI", 8)
+        self.font_proc_meta = pygame.font.SysFont("Segoe UI", 13)
+        self.font_task_name = pygame.font.SysFont("Segoe UI", 16, bold=True)
+        self.font_task_meta = pygame.font.SysFont("Segoe UI", 12)
 
         self.linea = linea
         base_count = (
@@ -796,6 +796,10 @@ class SimulationWindow:
             return
         self.playing = False
         self.linea.pausar()
+        # Al pausar, imprime el estado completo de la linea en consola para
+        # cumplir con el requisito de "mostrar el estado al pausar" del PDF.
+        print()
+        self.linea.imprimir_estado()
 
     def _toggle_play(self):
         if self.playing:
@@ -843,18 +847,31 @@ class SimulationWindow:
         self.running = False
 
     def _take_snapshot(self):
-        captures_dir = self.assets_dir / "capturas"
+        # Las capturas viven fuera de src/ para no mezclarse con codigo fuente.
+        captures_dir = ROOT / "status"
         captures_dir.mkdir(parents=True, exist_ok=True)
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        output = captures_dir / f"sim_{timestamp}.png"
+        output_png = captures_dir / f"sim_{timestamp}.png"
+        output_txt = captures_dir / f"sim_{timestamp}.txt"
 
         try:
             region = self.screen.subsurface(self.sim_panel_rect).copy()
-            pygame.image.save(region, str(output))
-            self._show_toast(f"Foto guardada: {output.name}")
+            pygame.image.save(region, str(output_png))
         except Exception:
             self._show_toast("No se pudo guardar la foto")
+            return
+
+        # Volcado textual del estado completo de la linea, en paralelo al PNG.
+        try:
+            with output_txt.open("w", encoding="utf-8") as f:
+                f.write(self.linea.estado_completo_texto())
+                f.write("\n")
+        except Exception:
+            self._show_toast(f"Foto guardada: {output_png.name} (sin .txt)")
+            return
+
+        self._show_toast(f"Foto + estado guardados: {output_png.name}")
 
     # -------------------------------- Eventos --------------------------------
 
@@ -1082,8 +1099,8 @@ class SimulationWindow:
                 f"Tareas: {len(proceso.tareas)}", True, PROC_META
             )
 
-            self.world.blit(title, (pr.x + 14, pr.y + 16))
-            self.world.blit(subt, (pr.x + 14, pr.y + 52))
+            self.world.blit(title, (pr.x + 14, pr.y + 12))
+            self.world.blit(subt, (pr.x + 14, pr.y + 50))
 
             for ti, tarea in enumerate(proceso.tareas):
                 tr = self.task_rects[(pi, ti)]
@@ -1104,12 +1121,18 @@ class SimulationWindow:
 
                 t1 = self.font_task_name.render(tarea.nombre, True, text_main)
                 t2 = self.font_task_meta.render(
-                    f"TP={tarea.tiempo_proceso} EP={tarea.cantidad_en_espera()}",
+                    f"Tiempo: {tarea.tiempo_proceso} ciclos",
                     True,
                     text_meta,
                 )
-                self.world.blit(t1, (tr.x + 14, tr.y + 14))
-                self.world.blit(t2, (tr.x + 14, tr.y + 44))
+                t3 = self.font_task_meta.render(
+                    f"En cola: {tarea.cantidad_en_espera()}",
+                    True,
+                    text_meta,
+                )
+                self.world.blit(t1, (tr.x + 14, tr.y + 10))
+                self.world.blit(t2, (tr.x + 14, tr.y + 38))
+                self.world.blit(t3, (tr.x + 14, tr.y + 58))
 
         _draw_rounded_rect(
             self.world,
