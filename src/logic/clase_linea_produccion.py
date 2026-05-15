@@ -124,16 +124,47 @@ class LineaProduccion:
         cantidad = cantidad if cantidad is not None else max(1, self.cantidad_ingreso)
         self.cargar_productos(cantidad)
 
-    def imprimir_estado(self):
-        """Imprime el estado de cada proceso y tarea en el ciclo actual."""
-        print(f"=== {self.nombre} | T={self.tiempo_actual} ===")
+    def estado_completo_texto(self):
+        """Devuelve un texto multilinea con el estado completo de la linea.
+
+        Incluye: cada proceso, cada tarea (tiempo proceso, en proceso, en cola),
+        producto siendo atendido, productos en cola, y el resumen global de
+        productos pendientes / en proceso / finalizados.
+        """
+        lineas = []
+        lineas.append(f"=== {self.nombre} | Ciclo T={self.tiempo_actual} ===")
+        lineas.append(
+            f"  Estado de la linea: {'Pausada' if self.pausada else 'En ejecucion'}"
+        )
+
         for proceso in self.procesos:
-            print(f"  {proceso}")
+            lineas.append(f"  {proceso}")
             for tarea in proceso.tareas:
-                print(f"    {tarea}")
+                lineas.append(f"    {tarea}")
+                if tarea.producto_actual is not None:
+                    lineas.append(
+                        f"      Producto en proceso: Producto {tarea.producto_actual.id}"
+                    )
+                if tarea.contenido_esperando:
+                    ids = [str(p.id) for p in tarea.contenido_esperando]
+                    lineas.append(f"      Productos en cola: [{', '.join(ids)}]")
+
         if self.productos:
+            total = len(self.productos)
+            pendientes = sum(1 for p in self.productos if p.estado == "en_espera")
+            en_proceso = sum(1 for p in self.productos if p.estado == "en_proceso")
             finalizados = sum(1 for p in self.productos if p.estado == "finalizado")
-            print(f"  Productos: {finalizados}/{len(self.productos)} finalizados")
+            lineas.append("  ---")
+            lineas.append(f"  Productos totales: {total}")
+            lineas.append(f"  Pendientes de iniciar: {pendientes}")
+            lineas.append(f"  En proceso: {en_proceso}")
+            lineas.append(f"  Finalizados: {finalizados}/{total}")
+
+        return "\n".join(lineas)
+
+    def imprimir_estado(self):
+        """Imprime el estado completo de la linea en el ciclo actual."""
+        print(self.estado_completo_texto())
 
     def __str__(self):
         return (

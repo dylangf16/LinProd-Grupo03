@@ -147,6 +147,29 @@ class Estadisticas:
 
         return total_espera / total_inicios
 
+    def utilizacion_promedio_tareas(self, incluir_entrada_inicial=False):
+        """Estadistica adicional del grupo: porcentaje promedio de ocupacion.
+
+        Mide, sobre el total de ticks simulados, que fraccion del tiempo las
+        tareas estuvieron realmente procesando un producto. Permite detectar
+        si la linea esta sub o sobre dimensionada. Retorna un valor en [0, 1].
+        """
+        utilizaciones = []
+        for proceso in self.linea.procesos:
+            for indice_tarea, tarea in enumerate(proceso.tareas):
+                if self._es_tarea_entrada_inicial(
+                    proceso, indice_tarea, incluir_entrada_inicial
+                ):
+                    continue
+                if not tarea.historial_ocupacion:
+                    continue
+                utilizaciones.append(tarea.utilizacion())
+
+        if not utilizaciones:
+            return 0.0
+
+        return sum(utilizaciones) / len(utilizaciones)
+
     def proceso_y_tarea_mayor_espera(self, incluir_entrada_inicial=False):
         proceso_resultado = None
         tarea_resultado = None
@@ -210,6 +233,10 @@ class Estadisticas:
         print(
             f"Tiempo total de procesamiento (suma de todos los productos): "
             f"{self.tiempo_total_procesamiento()} ciclos"
+        )
+        print(
+            f"Utilizacion promedio de tareas (estadistica del grupo): "
+            f"{self.utilizacion_promedio_tareas() * 100:.1f}%"
         )
         print("---------------------------------------")
 

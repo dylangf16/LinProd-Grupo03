@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python src/logic/test_linea_produccion.py)"
+    ]
+  }
+}
