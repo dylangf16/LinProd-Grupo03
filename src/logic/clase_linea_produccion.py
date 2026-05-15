@@ -2,85 +2,90 @@ from clase_producto import Producto
 
 
 class LineaProduccion:
-    """Representa una línea de producción lineal compuesta por procesos encadenados."""
-
     def __init__(self, nombre="Linea"):
-        """Inicializa la línea sin procesos ni productos cargados."""
         self.nombre = nombre
         self.procesos = []
-        self.productos = []  # productos inyectados a la línea
+        self.productos = []
         self.cantidad_ingreso = 0
         self.tiempo_actual = 0
         self.pausada = False
 
     def agregar_proceso(self, proceso):
-        """Agrega un proceso al final de la línea y lo encadena con el anterior.
-
-        Valida que solo exista un proceso inicial y un proceso final.
-        """
-        if proceso.es_inicial and any(p.es_inicial for p in self.procesos):
-            raise ValueError("Ya existe un proceso inicial en la línea")
-        if proceso.es_final and any(p.es_final for p in self.procesos):
-            raise ValueError("Ya existe un proceso final en la línea")
+        if proceso.es_inicial:
+            for p in self.procesos:
+                if p.es_inicial:
+                    raise ValueError("Ya existe un proceso inicial en la linea")
+        if proceso.es_final:
+            for p in self.procesos:
+                if p.es_final:
+                    raise ValueError("Ya existe un proceso final en la linea")
         if self.procesos:
             self.procesos[-1].conectar_siguiente(proceso)
         self.procesos.append(proceso)
 
     def eliminar_proceso(self, nombre):
-        """Elimina un proceso por nombre y reconecta los vecinos."""
-        proceso = next((p for p in self.procesos if p.nombre == nombre), None)
+        proceso = None
+        for p in self.procesos:
+            if p.nombre == nombre:
+                proceso = p
+                break
         if proceso is None:
             return False
+
         idx = self.procesos.index(proceso)
         anterior = self.procesos[idx - 1] if idx > 0 else None
         siguiente = self.procesos[idx + 1] if idx + 1 < len(self.procesos) else None
+
         if anterior is not None:
             anterior.siguiente_proceso = siguiente
         if siguiente is not None:
             siguiente.proceso_anterior = anterior
+
         proceso.siguiente_proceso = None
         proceso.proceso_anterior = None
         self.procesos.pop(idx)
         return True
 
     def limpiar(self):
-        """Vacía toda la línea (procesos y productos)."""
-        self.procesos.clear()
-        self.productos.clear()
+        self.procesos = []
+        self.productos = []
         self.cantidad_ingreso = 0
         self.tiempo_actual = 0
         self.pausada = False
 
     def get_proceso_inicial(self):
-        """Retorna el proceso marcado como inicial, o None si no existe."""
-        return next((p for p in self.procesos if p.es_inicial), None)
+        for p in self.procesos:
+            if p.es_inicial:
+                return p
+        return None
 
     def get_proceso_final(self):
-        """Retorna el proceso marcado como final, o None si no existe."""
-        return next((p for p in self.procesos if p.es_final), None)
+        for p in self.procesos:
+            if p.es_final:
+                return p
+        return None
 
     def cargar_productos(self, cantidad):
-        """Crea `cantidad` productos y los inyecta al proceso inicial."""
         cantidad = int(cantidad)
         if cantidad < 1:
             raise ValueError("La cantidad de productos debe ser >= 1")
-
         if not self.procesos:
-            raise ValueError("La línea no tiene procesos")
+            raise ValueError("La linea no tiene procesos")
 
         inicial = self.get_proceso_inicial()
         if inicial is None:
-            raise ValueError("La línea no tiene un proceso inicial definido")
+            raise ValueError("La linea no tiene un proceso inicial definido")
         if self.get_proceso_final() is None:
-            raise ValueError("La línea no tiene un proceso final definido")
+            raise ValueError("La linea no tiene un proceso final definido")
 
         self.cantidad_ingreso = cantidad
-        self.productos = [Producto(i + 1, self.tiempo_actual) for i in range(cantidad)]
-        for prod in self.productos:
-            inicial.recibir_producto(prod)
+        self.productos = []
+        for i in range(cantidad):
+            producto = Producto(i + 1, self.tiempo_actual)
+            self.productos.append(producto)
+            inicial.recibir_producto(producto)
 
     def tick(self):
-        """Avanza un ciclo de tiempo en toda la línea."""
         if self.pausada:
             return
         self.tiempo_actual += 1
@@ -90,9 +95,6 @@ class LineaProduccion:
             proceso.tick(self.tiempo_actual)
 
     def correr(self, max_ciclos=10000):
-        """Avanza la simulación hasta que todos los productos finalicen,
-        se pause la línea, o se alcance `max_ciclos`.
-        """
         ciclos = 0
         while not self.todos_finalizados() and ciclos < max_ciclos:
             if self.pausada:
@@ -101,48 +103,39 @@ class LineaProduccion:
             ciclos += 1
 
     def correr_hasta(self, t_objetivo):
-        """Avanza la simulación hasta el tiempo `t_objetivo` (o hasta pausarse)."""
         while self.tiempo_actual < t_objetivo and not self.todos_finalizados():
             if self.pausada:
                 break
             self.tick()
 
     def pausar(self):
-        """Pone la línea en pausa; `tick` no avanza mientras esté pausada."""
         self.pausada = True
 
     def reanudar(self):
-        """Quita la pausa de la línea para permitir que avance el tiempo."""
         self.pausada = False
 
     def todos_finalizados(self):
-        """True si hay productos en la línea y todos están finalizados."""
-        return bool(self.productos) and all(p.esta_finalizado() for p in self.productos)
+        if not self.productos:
+            return False
+        for p in self.productos:
+            if not p.esta_finalizado():
+                return False
+        return True
 
     def reiniciar(self, cantidad=None):
-        """Reinicia la simulación con los mismos procesos y tareas.
-
-        Si `cantidad` es None, vuelve a usar la cantidad anterior.
-        """
         self.tiempo_actual = 0
         self.pausada = False
         for proceso in self.procesos:
             proceso.reiniciar()
-        cantidad = cantidad if cantidad is not None else max(1, self.cantidad_ingreso)
+        if cantidad is None:
+            cantidad = max(1, self.cantidad_ingreso)
         self.cargar_productos(cantidad)
 
     def estado_completo_texto(self):
-        """Devuelve un texto multilinea con el estado completo de la linea.
-
-        Incluye: cada proceso, cada tarea (tiempo proceso, en proceso, en cola),
-        producto siendo atendido, productos en cola, y el resumen global de
-        productos pendientes / en proceso / finalizados.
-        """
         lineas = []
         lineas.append(f"=== {self.nombre} | Ciclo T={self.tiempo_actual} ===")
-        lineas.append(
-            f"  Estado de la linea: {'Pausada' if self.pausada else 'En ejecucion'}"
-        )
+        estado = "Pausada" if self.pausada else "En ejecucion"
+        lineas.append(f"  Estado de la linea: {estado}")
 
         for proceso in self.procesos:
             lineas.append(f"  {proceso}")
@@ -158,9 +151,17 @@ class LineaProduccion:
 
         if self.productos:
             total = len(self.productos)
-            pendientes = sum(1 for p in self.productos if p.estado == "en_espera")
-            en_proceso = sum(1 for p in self.productos if p.estado == "en_proceso")
-            finalizados = sum(1 for p in self.productos if p.estado == "finalizado")
+            pendientes = 0
+            en_proceso = 0
+            finalizados = 0
+            for p in self.productos:
+                if p.estado == "en_espera":
+                    pendientes += 1
+                elif p.estado == "en_proceso":
+                    en_proceso += 1
+                elif p.estado == "finalizado":
+                    finalizados += 1
+
             lineas.append("  ---")
             lineas.append(f"  Productos totales: {total}")
             lineas.append(f"  Pendientes de iniciar: {pendientes}")
@@ -170,15 +171,10 @@ class LineaProduccion:
         return "\n".join(lineas)
 
     def imprimir_estado(self):
-        """Imprime el estado completo de la linea en el ciclo actual."""
         print(self.estado_completo_texto())
 
     def __str__(self):
-        """Devuelve una representación corta y legible de la línea."""
         return (
             f"LineaProduccion {self.nombre} "
             f"({len(self.procesos)} procesos, T={self.tiempo_actual})"
         )
-
-    def __repr__(self):
-        return self.__str__()
