@@ -42,7 +42,20 @@ TASK_W = 210
 TASK_H = 90
 TASK_GAP = 28
 
-PROD_SZ = 36
+PROD_SZ = 30
+
+PROC_FILL = (3, 1, 76)  # #03014C
+PROC_TEXT = (242, 246, 255)
+PROC_META = (197, 206, 244)
+
+TASK_IDLE_FILL = (83, 79, 252)  # #534FFC
+TASK_IDLE_TEXT = (244, 246, 255)
+TASK_IDLE_META = (212, 219, 255)
+
+TASK_ACTIVE_FILL = (243, 248, 255)  # #F3F8FF
+TASK_ACTIVE_BORDER = (174, 173, 254)  # #AEADFE
+TASK_ACTIVE_TEXT = (50, 57, 78)
+TASK_ACTIVE_META = (139, 148, 170)
 
 PAGE_BG = (210, 210, 210)
 SIDEBAR_BG = (246, 247, 250)
@@ -333,6 +346,10 @@ class SimulationWindow:
         self.font = pygame.font.SysFont("Segoe UI", 18)
         self.font_b = pygame.font.SysFont("Segoe UI", 18, bold=True)
         self.font_sm = pygame.font.SysFont("Segoe UI", 14)
+        self.font_proc_name = pygame.font.SysFont("Segoe UI", 19, bold=True)
+        self.font_proc_meta = pygame.font.SysFont("Segoe UI", 8)
+        self.font_task_name = pygame.font.SysFont("Segoe UI", 16)
+        self.font_task_meta = pygame.font.SysFont("Segoe UI", 8)
 
         self.linea = linea
         base_count = (
@@ -397,8 +414,15 @@ class SimulationWindow:
         except Exception:
             return None
 
+    def _set_window_icon(self):
+        icon = self._load_image(self.assets_dir / "Iconos" / "Icon Logo.png")
+        if icon is None:
+            return
+        pygame.display.set_icon(pygame.transform.smoothscale(icon, (32, 32)))
+
     def _load_assets(self):
         self.assets_dir = Path(__file__).resolve().parent / "assets"
+        self._set_window_icon()
 
         def load_or_placeholder(
             path: Path,
@@ -407,33 +431,26 @@ class SimulationWindow:
         ) -> pygame.Surface:
             image = self._load_image(path)
             if image is None:
-                placeholder = pygame.Surface(size)
-                placeholder.fill(color)
+                placeholder = pygame.Surface(size, pygame.SRCALPHA)
+                pygame.draw.circle(
+                    placeholder,
+                    color,
+                    (size[0] // 2, size[1] // 2),
+                    max(6, min(size) // 3),
+                )
                 image = placeholder
             return pygame.transform.smoothscale(image, size)
 
-        self.asset_proc = load_or_placeholder(
-            self.assets_dir / "proceso.png", (PROC_W, PROC_H), (100, 122, 170)
+        self.asset_queue_icon = load_or_placeholder(
+            self.assets_dir / "Iconos" / "Icon En cola.png",
+            (PROD_SZ, PROD_SZ),
+            (14, 14, 106),
         )
-        self.asset_task = load_or_placeholder(
-            self.assets_dir / "tarea.png", (TASK_W, TASK_H), (120, 142, 185)
+        self.asset_process_icon = load_or_placeholder(
+            self.assets_dir / "Iconos" / "Icon Proceso.png",
+            (PROD_SZ, PROD_SZ),
+            (113, 195, 45),
         )
-        self.asset_prod = load_or_placeholder(
-            self.assets_dir / "producto.jpg", (PROD_SZ, PROD_SZ), (213, 171, 82)
-        )
-
-        bg = self._load_image(self.assets_dir / "fondo_simulacion.png")
-        if bg is None:
-            bg = pygame.Surface((1280, 720))
-            c1 = (219, 221, 227)
-            c2 = (204, 206, 212)
-            size = 52
-            for y in range(0, 720, size):
-                for x in range(0, 1280, size):
-                    color = c1 if ((x // size) + (y // size)) % 2 == 0 else c2
-                    pygame.draw.rect(bg, color, pygame.Rect(x, y, size, size))
-            bg = bg.convert()
-        self.asset_background = bg
 
     @staticmethod
     def _cover_surface(
@@ -455,11 +472,8 @@ class SimulationWindow:
     def _get_view_background(self) -> pygame.Surface:
         size = (self.view_rect.w, self.view_rect.h)
         if self._view_bg_cache is None or self._view_bg_cache_size != size:
-            self._view_bg_cache = self._cover_surface(
-                self.asset_background,
-                self.view_rect.w,
-                self.view_rect.h,
-            )
+            self._view_bg_cache = pygame.Surface(size)
+            self._view_bg_cache.fill(BTN_SOFT_BLUE)
             self._view_bg_cache_size = size
         return self._view_bg_cache
 
@@ -664,11 +678,11 @@ class SimulationWindow:
 
     def _task_center(self, pi: int, ti: int) -> tuple[int, int]:
         rect = self.task_rects[(pi, ti)]
-        return rect.centerx, rect.centery
+        return rect.right - 34, rect.centery
 
     def _queue_slot(self, pi: int, ti: int, qi: int) -> tuple[int, int]:
         rect = self.task_rects[(pi, ti)]
-        x = max(26, rect.left - 28 - qi * 24)
+        x = max(24, rect.left - 20 - qi * (PROD_SZ + 8))
         y = rect.centery
         return x, y
 
@@ -811,6 +825,7 @@ class SimulationWindow:
                 self.screen = pygame.display.set_mode(
                     (event.w, event.h), pygame.RESIZABLE
                 )
+                self._set_window_icon()
                 self._refresh_layout()
                 self._rebuild_layout()
                 self._snap_sprites_to_locations()
@@ -979,58 +994,48 @@ class SimulationWindow:
 
         for pi, proceso in enumerate(self.linea.procesos):
             pr = self.process_rects[pi]
-            self.world.blit(self.asset_proc, pr.topleft)
             _draw_rounded_rect(
                 self.world,
                 pr,
-                None,
+                PROC_FILL,
                 radius=12,
-                border_color=(74, 93, 131),
-                border_width=2,
+                border_color=PROC_FILL,
+                border_width=1,
             )
 
-            flags = []
-            if proceso.es_inicial:
-                flags.append("INICIAL")
-            if proceso.es_final:
-                flags.append("FINAL")
-            mark = f" ({', '.join(flags)})" if flags else ""
+            title = self.font_proc_name.render(proceso.nombre, True, PROC_TEXT)
+            subt = self.font_proc_meta.render(
+                f"Tareas: {len(proceso.tareas)}", True, PROC_META
+            )
 
-            title = self.font_sm.render(proceso.nombre + mark, True, TEXT_DARK)
-            subt = self.font_sm.render(f"Tareas: {len(proceso.tareas)}", True, TEXT_MID)
-
-            self.world.blit(title, (pr.x + 12, pr.y + 12))
-            self.world.blit(subt, (pr.x + 12, pr.y + 42))
+            self.world.blit(title, (pr.x + 14, pr.y + 16))
+            self.world.blit(subt, (pr.x + 14, pr.y + 52))
 
             for ti, tarea in enumerate(proceso.tareas):
                 tr = self.task_rects[(pi, ti)]
-                self.world.blit(self.asset_task, tr.topleft)
+                active = tarea.esta_procesando
+                fill = TASK_ACTIVE_FILL if active else TASK_IDLE_FILL
+                border = TASK_ACTIVE_BORDER if active else TASK_IDLE_FILL
+                text_main = TASK_ACTIVE_TEXT if active else TASK_IDLE_TEXT
+                text_meta = TASK_ACTIVE_META if active else TASK_IDLE_META
+
                 _draw_rounded_rect(
                     self.world,
                     tr,
-                    None,
+                    fill,
                     radius=10,
-                    border_color=(88, 105, 142),
+                    border_color=border,
                     border_width=2,
                 )
 
-                if tarea.esta_procesando:
-                    processing_overlay = pygame.Surface((tr.w, tr.h), pygame.SRCALPHA)
-                    processing_overlay.fill((*BTN_DEEP_BLUE, 138))
-                    self.world.blit(processing_overlay, tr.topleft)
-
-                t1 = self.font_sm.render(tarea.nombre, True, TEXT_DARK)
-                t2 = self.font_sm.render(
-                    (
-                        f"TP={tarea.tiempo_proceso}  "
-                        f"EP={'S' if tarea.esta_procesando else 'N'}  "
-                        f"CE={tarea.cantidad_en_espera()}"
-                    ),
+                t1 = self.font_task_name.render(tarea.nombre, True, text_main)
+                t2 = self.font_task_meta.render(
+                    f"TP={tarea.tiempo_proceso} EP={tarea.cantidad_en_espera()}",
                     True,
-                    TEXT_MID,
+                    text_meta,
                 )
-                self.world.blit(t1, (tr.x + 10, tr.y + 10))
-                self.world.blit(t2, (tr.x + 10, tr.y + 38))
+                self.world.blit(t1, (tr.x + 14, tr.y + 14))
+                self.world.blit(t2, (tr.x + 14, tr.y + 44))
 
         _draw_rounded_rect(
             self.world,
@@ -1074,13 +1079,11 @@ class SimulationWindow:
         for sprite in self.product_sprites.values():
             if not sprite.visible:
                 continue
-            rect = self.asset_prod.get_rect(
-                center=(int(sprite.pos.x), int(sprite.pos.y))
-            )
-            self.world.blit(self.asset_prod, rect.topleft)
-
-            id_txt = self.font_sm.render(str(sprite.pid), True, (24, 24, 24))
-            self.world.blit(id_txt, id_txt.get_rect(center=rect.center))
+            loc = self.product_locations.get(sprite.pid)
+            kind = loc[0] if loc else ""
+            icon = self.asset_queue_icon if kind == "queue" else self.asset_process_icon
+            rect = icon.get_rect(center=(int(sprite.pos.x), int(sprite.pos.y)))
+            self.world.blit(icon, rect.topleft)
 
     def _draw_simulation_panel(self):
         _draw_rounded_rect(
@@ -1109,9 +1112,6 @@ class SimulationWindow:
         )
 
         self.screen.blit(self._get_view_background(), self.view_rect.topleft)
-        bg_veil = pygame.Surface((self.view_rect.w, self.view_rect.h), pygame.SRCALPHA)
-        bg_veil.fill((245, 248, 255, 108))
-        self.screen.blit(bg_veil, self.view_rect.topleft)
 
         self._draw_world()
 

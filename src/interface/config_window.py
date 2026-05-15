@@ -351,6 +351,7 @@ class ConfigWindow:
         self.clock = pygame.time.Clock()
 
         self.assets_dir = Path(__file__).resolve().parent / "assets"
+        self._set_window_icon()
         self.header_bg = self._load_image(
             "Pantalla Configuración/Header de Pantalla Configuración.png"
         )
@@ -456,6 +457,12 @@ class ConfigWindow:
             return pygame.image.load(str(full)).convert_alpha()
         except pygame.error:
             return None
+
+    def _set_window_icon(self):
+        icon = self._load_image("Iconos/Icon Logo.png")
+        if icon is None:
+            return
+        pygame.display.set_icon(pygame.transform.smoothscale(icon, (32, 32)))
 
     def _get_icon(self, name: str, size: int) -> pygame.Surface | None:
         key = (name, size)
@@ -1571,6 +1578,7 @@ class ConfigWindow:
                 self.screen = pygame.display.set_mode(
                     (info.current_w, info.current_h), pygame.RESIZABLE
                 )
+                self._set_window_icon()
                 return
             if event.key == pygame.K_s and (event.mod & pygame.KMOD_CTRL):
                 self._guardar_json()
@@ -1714,6 +1722,7 @@ class ConfigWindow:
                     nw = max(940, event.w)
                     nh = max(620, event.h)
                     self.screen = pygame.display.set_mode((nw, nh), pygame.RESIZABLE)
+                    self._set_window_icon()
                     self._refresh_fonts()
                     continue
 
