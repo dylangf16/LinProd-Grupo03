@@ -1,5 +1,13 @@
 class Proceso:
+    """Proceso de la línea que agrupa tareas por composición.
+
+    Nota de diseño: `Tarea` no hereda de `Proceso`. Cada tarea mantiene una
+    referencia a su proceso padre (`tarea.proceso`) para modelar una relación
+    todo-parte simple y clara para esta simulación.
+    """
+
     def __init__(self, nombre, tareas, es_inicial=False, es_final=False):
+        """Crea un proceso y encadena sus tareas en el orden recibido."""
         nombre = str(nombre).strip()
         if not nombre:
             raise ValueError("El nombre del proceso no puede estar vacio")
@@ -60,16 +68,20 @@ class Proceso:
             tarea.tick(tiempo_actual)
 
     def reiniciar(self):
+        """Reinicia el estado interno de todas sus tareas."""
         for tarea in self.tareas:
             tarea.reiniciar()
 
     def get_primera_tarea(self):
+        """Retorna la primera tarea del proceso, o None si no hay tareas."""
         return self.tareas[0] if self.tareas else None
 
     def get_ultima_tarea(self):
+        """Retorna la última tarea del proceso, o None si no hay tareas."""
         return self.tareas[-1] if self.tareas else None
 
     def __str__(self):
+        """Devuelve una representación textual breve del proceso."""
         marcas = []
         if self.es_inicial:
             marcas.append("INICIAL")

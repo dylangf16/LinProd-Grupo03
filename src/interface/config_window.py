@@ -418,7 +418,12 @@ class ConfigWindow:
         self.modal_task_scroll = 0.0
         self.modal_task_delete_hitboxes: list[tuple[int, pygame.Rect]] = []
         self.modal_task_item_hitboxes: list[tuple[int, pygame.Rect]] = []
+        self.modal_task_move_left_hitboxes: list[tuple[int, pygame.Rect]] = []
+        self.modal_task_move_right_hitboxes: list[tuple[int, pygame.Rect]] = []
         self.modal_task_edit_index: int | None = None
+        self.modal_predecessor_name: str | None = None
+        self.modal_predecessor_left_hitbox = pygame.Rect(0, 0, 0, 0)
+        self.modal_predecessor_right_hitbox = pygame.Rect(0, 0, 0, 0)
 
         self.modal_proc_name = TextInput(
             (0, 0, 100, 56), placeholder="Placeholder text here...", max_len=40
@@ -661,9 +666,16 @@ class ConfigWindow:
         )
         checks_y = proc_input.bottom + max(18, int(24 * self.ui_scale))
 
+        pred_input = pygame.Rect(
+            left_x,
+            checks_y + max(46, int(56 * self.ui_scale)),
+            left_w,
+            max(42, int(50 * self.ui_scale)),
+        )
+
         task_name = pygame.Rect(
             left_x,
-            checks_y + max(100, int(108 * self.ui_scale)),
+            pred_input.bottom + max(42, int(50 * self.ui_scale)),
             left_w,
             max(44, int(56 * self.ui_scale)),
         )
@@ -699,6 +711,7 @@ class ConfigWindow:
         return {
             "proc_input": proc_input,
             "checks_y": checks_y,
+            "pred_input": pred_input,
             "task_name": task_name,
             "task_time": task_time,
             "add_task_btn": add_task_btn,
@@ -751,6 +764,40 @@ class ConfigWindow:
                 else:
                     seen_final = True
 
+    def _normalize_predecessor_refs(self):
+        valid_names = {
+            str(proc.get("nombre", "")).strip()
+            for proc in self.procesos_cfg
+            if str(proc.get("nombre", "")).strip()
+        }
+
+        for proc in self.procesos_cfg:
+            proc.setdefault("predecesor", None)
+            if proc.get("es_inicial"):
+                proc["predecesor"] = None
+                continue
+
+            pred = proc.get("predecesor")
+            pred_name = str(pred).strip() if pred is not None else ""
+            own_name = str(proc.get("nombre", "")).strip()
+
+            if not pred_name or pred_name == own_name or pred_name not in valid_names:
+                proc["predecesor"] = None
+                continue
+
+            pred_cfg = next(
+                (
+                    p
+                    for p in self.procesos_cfg
+                    if str(p.get("nombre", "")).strip() == pred_name
+                ),
+                None,
+            )
+            if pred_cfg is not None and pred_cfg.get("es_final"):
+                proc["predecesor"] = None
+            else:
+                proc["predecesor"] = pred_name
+
     def _ordered_cfg_for_build(self) -> list[dict]:
         initial = next((p for p in self.procesos_cfg if p.get("es_inicial")), None)
         final = next((p for p in self.procesos_cfg if p.get("es_final")), None)
@@ -799,6 +846,149 @@ class ConfigWindow:
         while f"Proceso_{num}" in used_names:
             num += 1
         return f"Proceso_{num}"
+
+    def _modal_predecessor_candidates(self) -> list[str]:
+        candidates: list[str] = []
+        for idx, proc in enumerate(self.procesos_cfg):
+            if self.modal_edit_index is not None and idx == self.modal_edit_index:
+                continue
+            if proc.get("es_final"):
+                continue
+            nombre = str(proc.get("nombre", "")).strip()
+            if nombre:
+                candidates.append(nombre)
+        return candidates
+
+    def _infer_predecessor_from_index(self, index: int) -> str | None:
+        if not (0 <= index < len(self.procesos_cfg)):
+            return None
+
+        proceso = self.procesos_cfg[index]
+        if proceso.get("es_inicial"):
+            return None
+
+        visual_indices = self._visual_process_order_indices()
+        if index not in visual_indices:
+            return None
+
+        visual_pos = visual_indices.index(index)
+        for prev_pos in range(visual_pos - 1, -1, -1):
+            prev = self.procesos_cfg[visual_indices[prev_pos]]
+            if prev.get("es_final"):
+                continue
+            nombre = str(prev.get("nombre", "")).strip()
+            if nombre:
+                return nombre
+
+        return None
+
+    def _default_modal_predecessor(
+        self,
+        stored_name: str | None = None,
+        fallback_to_last: bool = True,
+    ) -> str | None:
+        candidates = self._modal_predecessor_candidates()
+        if self.modal_chk_initial.checked or not candidates:
+            return None
+        if stored_name in candidates:
+            return stored_name
+        if not fallback_to_last:
+            return None
+        return candidates[-1]
+
+    def _cycle_modal_predecessor(self, step: int):
+        candidates = self._modal_predecessor_candidates()
+        if self.modal_chk_initial.checked or not candidates:
+            self.modal_predecessor_name = None
+            return
+
+        options: list[str | None] = [None] + candidates
+        current = (
+            self.modal_predecessor_name
+            if self.modal_predecessor_name in options
+            else None
+        )
+        idx = options.index(current)
+        self.modal_predecessor_name = options[(idx + step) % len(options)]
+
+    def _set_modal_predecessor_hitboxes(self, pred_rect: pygame.Rect):
+        arrow_r = max(12, int(14 * self.ui_scale))
+        gap = max(8, int(10 * self.ui_scale))
+
+        right_rect = pygame.Rect(0, 0, arrow_r * 2, arrow_r * 2)
+        left_rect = pygame.Rect(0, 0, arrow_r * 2, arrow_r * 2)
+
+        right_rect.center = (
+            pred_rect.right - max(24, int(30 * self.ui_scale)),
+            pred_rect.centery,
+        )
+        left_rect.center = (
+            right_rect.centerx - (arrow_r * 2 + gap),
+            pred_rect.centery,
+        )
+
+        self.modal_predecessor_left_hitbox = left_rect
+        self.modal_predecessor_right_hitbox = right_rect
+
+    def _reposition_process_by_predecessor(self, process_index: int):
+        if not (0 <= process_index < len(self.procesos_cfg)):
+            return
+
+        proc = self.procesos_cfg.pop(process_index)
+
+        if proc.get("es_inicial"):
+            proc["predecesor"] = None
+            self.procesos_cfg.insert(0, proc)
+            return
+
+        if proc.get("es_final") and self.procesos_cfg:
+            self.procesos_cfg.append(proc)
+            return
+
+        pred_raw = proc.get("predecesor")
+        pred_name = pred_raw.strip() if isinstance(pred_raw, str) else ""
+        if not pred_name:
+            initial_idx = next(
+                (i for i, p in enumerate(self.procesos_cfg) if p.get("es_inicial")),
+                None,
+            )
+            insert_idx = initial_idx + 1 if initial_idx is not None else len(self.procesos_cfg)
+            self.procesos_cfg.insert(insert_idx, proc)
+            return
+
+        pred_idx = next(
+            (
+                i
+                for i, p in enumerate(self.procesos_cfg)
+                if str(p.get("nombre", "")).strip() == pred_name
+            ),
+            None,
+        )
+        if pred_idx is None:
+            proc["predecesor"] = None
+            initial_idx = next(
+                (i for i, p in enumerate(self.procesos_cfg) if p.get("es_inicial")),
+                None,
+            )
+            insert_idx = initial_idx + 1 if initial_idx is not None else len(self.procesos_cfg)
+            self.procesos_cfg.insert(insert_idx, proc)
+            return
+
+        self.procesos_cfg.insert(pred_idx + 1, proc)
+
+    def _swap_modal_tasks(self, idx_a: int, idx_b: int):
+        if not (0 <= idx_a < len(self.modal_tasks) and 0 <= idx_b < len(self.modal_tasks)):
+            return
+
+        self.modal_tasks[idx_a], self.modal_tasks[idx_b] = (
+            self.modal_tasks[idx_b],
+            self.modal_tasks[idx_a],
+        )
+
+        if self.modal_task_edit_index == idx_a:
+            self.modal_task_edit_index = idx_b
+        elif self.modal_task_edit_index == idx_b:
+            self.modal_task_edit_index = idx_a
 
     def _next_task_default_name(self) -> str:
         used_names = {str(t.get("nombre", "")).strip() for t in self.modal_tasks}
@@ -856,7 +1046,10 @@ class ConfigWindow:
 
     def _load_data_into_ui(self, data: dict):
         self.procesos_cfg = data.get("procesos", [])
+        for proc in self.procesos_cfg:
+            proc.setdefault("predecesor", None)
         self._normalize_unique_flags()
+        self._normalize_predecessor_refs()
         cantidad = data.get("cantidad_ingreso", 0)
         self.inp_cantidad.text = str(cantidad) if cantidad else ""
         self.cards_scroll = 0.0
@@ -984,14 +1177,24 @@ class ConfigWindow:
                 "nombre": self._next_process_default_name(),
                 "es_inicial": default_initial,
                 "es_final": False,
+                "predecesor": None,
                 "tareas": [],
             }
         else:
             proc = self.procesos_cfg[index]
+            pred_raw = proc.get("predecesor")
+            pred = (
+                pred_raw.strip()
+                if isinstance(pred_raw, str) and pred_raw.strip()
+                else None
+            )
+            if pred is None:
+                pred = self._infer_predecessor_from_index(index)
             proc_cfg = {
                 "nombre": str(proc.get("nombre", "")),
                 "es_inicial": bool(proc.get("es_inicial")),
                 "es_final": bool(proc.get("es_final")),
+                "predecesor": pred,
                 "tareas": [
                     {
                         "nombre": str(t.get("nombre", "")),
@@ -1004,6 +1207,10 @@ class ConfigWindow:
         self.modal_proc_name.text = proc_cfg["nombre"]
         self.modal_chk_initial.checked = bool(proc_cfg["es_inicial"])
         self.modal_chk_final.checked = bool(proc_cfg["es_final"])
+        self.modal_predecessor_name = self._default_modal_predecessor(
+            proc_cfg.get("predecesor"),
+            fallback_to_last=index is None,
+        )
         self.modal_tasks = proc_cfg["tareas"]
         self._set_task_add_mode(reseed=True)
 
@@ -1015,6 +1222,9 @@ class ConfigWindow:
         self.modal_open = False
         self.modal_error = ""
         self._set_task_add_mode(reseed=False)
+        self.modal_predecessor_name = None
+        self.modal_predecessor_left_hitbox = pygame.Rect(0, 0, 0, 0)
+        self.modal_predecessor_right_hitbox = pygame.Rect(0, 0, 0, 0)
         self.modal_proc_name.active = False
         self.modal_task_name.active = False
         self.modal_task_time.active = False
@@ -1102,14 +1312,25 @@ class ConfigWindow:
         if not name:
             self.modal_error = "El nombre del proceso no puede estar vacio."
             return
+        for idx, proc in enumerate(self.procesos_cfg):
+            if self.modal_edit_index is not None and idx == self.modal_edit_index:
+                continue
+            if str(proc.get("nombre", "")).strip().lower() == name.lower():
+                self.modal_error = "El nombre del proceso debe ser unico."
+                return
         if not self.modal_tasks:
             self.modal_error = "Agrega al menos una tarea para guardar el proceso."
             return
+
+        predecessor_name = None
+        if not self.modal_chk_initial.checked:
+            predecessor_name = self.modal_predecessor_name
 
         data = {
             "nombre": name,
             "es_inicial": self.modal_chk_initial.checked,
             "es_final": self.modal_chk_final.checked,
+            "predecesor": predecessor_name,
             "tareas": [
                 {"nombre": t["nombre"], "tiempo": int(t["tiempo"])}
                 for t in self.modal_tasks
@@ -1119,18 +1340,39 @@ class ConfigWindow:
         if not self._modal_validate_flags(data):
             return
 
+        old_name = None
         if self.modal_edit_index is None:
             self.procesos_cfg.append(data)
+            target_index = len(self.procesos_cfg) - 1
             self.cards_scroll = 0.0
             self.cards_scrollbar.offset = 0.0
         else:
+            old_name = str(self.procesos_cfg[self.modal_edit_index].get("nombre", "")).strip()
             self.procesos_cfg[self.modal_edit_index] = data
+            target_index = self.modal_edit_index
+
+        if old_name and old_name != name:
+            for idx, proc in enumerate(self.procesos_cfg):
+                if idx == target_index:
+                    continue
+                pred_raw = proc.get("predecesor")
+                pred_name = pred_raw.strip() if isinstance(pred_raw, str) else ""
+                if pred_name == old_name:
+                    proc["predecesor"] = name
+
+        self._normalize_predecessor_refs()
+        self._reposition_process_by_predecessor(target_index)
 
         self._close_modal()
 
     def _delete_process(self, index: int):
         if 0 <= index < len(self.procesos_cfg):
-            self.procesos_cfg.pop(index)
+            removed = self.procesos_cfg.pop(index)
+            removed_name = str(removed.get("nombre", "")).strip()
+            for proc in self.procesos_cfg:
+                if str(proc.get("predecesor", "")).strip() == removed_name:
+                    proc["predecesor"] = None
+            self._normalize_predecessor_refs()
 
     def _swap_visual_neighbors(self, visual_idx_a: int, visual_idx_b: int):
         """Intercambia, en procesos_cfg, los procesos que ocupan dos posiciones
@@ -1453,6 +1695,7 @@ class ConfigWindow:
         self.modal_proc_name.set_rect(m["proc_input"])
         self.modal_task_name.set_rect(m["task_name"])
         self.modal_task_time.set_rect(m["task_time"])
+        self._set_modal_predecessor_hitboxes(m["pred_input"])
         self.modal_chk_initial.set_pos(m["proc_input"].x, m["checks_y"])
         self.modal_chk_final.set_pos(
             m["proc_input"].x + m["proc_input"].w // 2 + 8, m["checks_y"]
@@ -1468,6 +1711,51 @@ class ConfigWindow:
         self.modal_proc_name.draw(self.screen, self.font_body)
         self.modal_chk_initial.draw(self.screen, self.font_h2)
         self.modal_chk_final.draw(self.screen, self.font_h2)
+
+        pred_lbl = self.font_h2.render("Proceso predecesor", True, TEXT_MID)
+        pred_rect: pygame.Rect = m["pred_input"]
+        self.screen.blit(
+            pred_lbl,
+            (pred_rect.x, pred_rect.y - pred_lbl.get_height() - 10),
+        )
+
+        _draw_smooth_rounded_rect(
+            self.screen,
+            pred_rect,
+            INPUT_BG,
+            9,
+            border_color=INPUT_BORDER,
+            border_width=1,
+        )
+
+        pred_candidates = self._modal_predecessor_candidates()
+        can_cycle_pred = (not self.modal_chk_initial.checked) and bool(pred_candidates)
+        pred_value = self.modal_predecessor_name or "Sin predecesor"
+        if self.modal_chk_initial.checked:
+            pred_value = "No aplica (proceso inicial)"
+
+        pred_text = self._trim_text(
+            pred_value,
+            self.font_body,
+            pred_rect.w - max(138, int(174 * self.ui_scale)),
+        )
+        pred_text_s = self.font_body.render(pred_text, True, TEXT_MID)
+        self.screen.blit(
+            pred_text_s,
+            (
+                pred_rect.x + 16,
+                pred_rect.y + (pred_rect.h - pred_text_s.get_height()) // 2,
+            ),
+        )
+
+        for direction, rect in (
+            ("left", self.modal_predecessor_left_hitbox),
+            ("right", self.modal_predecessor_right_hitbox),
+        ):
+            fill = BLUE_SOFT if can_cycle_pred else _hex_to_rgb("E3E6EF")
+            chevron = BLUE_ACTION if can_cycle_pred else TEXT_HINT
+            _draw_smooth_circle(self.screen, rect.center, rect.w // 2, fill)
+            self._draw_chevron(self.screen, rect.center, rect.w // 2, chevron, direction)
 
         tname_lbl = self.font_h2.render("Nombre de la tarea", True, TEXT_MID)
         self.screen.blit(
@@ -1504,6 +1792,8 @@ class ConfigWindow:
 
         self.modal_task_delete_hitboxes = []
         self.modal_task_item_hitboxes = []
+        self.modal_task_move_left_hitboxes = []
+        self.modal_task_move_right_hitboxes = []
         prev_clip = self.screen.get_clip()
         self.screen.set_clip(list_clip)
 
@@ -1535,7 +1825,7 @@ class ConfigWindow:
                 self.screen.blit(t_icon, t_icon.get_rect(center=ic_c))
 
             tx = item_rect.x + max(64, int(84 * self.ui_scale))
-            name_max = item_rect.w - max(170, int(220 * self.ui_scale))
+            name_max = item_rect.w - max(260, int(300 * self.ui_scale))
             nm = self._trim_text(str(task["nombre"]), self.font_h2, name_max)
 
             nm_s = self.font_h2.render(nm, True, TEXT_MID)
@@ -1557,6 +1847,43 @@ class ConfigWindow:
                 item_rect.right - max(26, int(34 * self.ui_scale)),
                 item_rect.centery,
             )
+
+            move_radius = max(12, int(16 * self.ui_scale))
+            move_right_rect = pygame.Rect(0, 0, move_radius * 2, move_radius * 2)
+            move_left_rect = pygame.Rect(0, 0, move_radius * 2, move_radius * 2)
+            move_right_rect.center = (
+                d_rect.centerx - max(36, int(44 * self.ui_scale)),
+                item_rect.centery,
+            )
+            move_left_rect.center = (
+                move_right_rect.centerx - (move_radius * 2 + max(8, int(10 * self.ui_scale))),
+                item_rect.centery,
+            )
+
+            can_move_left = i > 0
+            can_move_right = i + 1 < len(self.modal_tasks)
+            if can_move_left:
+                _draw_smooth_circle(self.screen, move_left_rect.center, move_radius, BLUE_SOFT)
+                self._draw_chevron(
+                    self.screen,
+                    move_left_rect.center,
+                    move_radius,
+                    BLUE_ACTION,
+                    "left",
+                )
+                self.modal_task_move_left_hitboxes.append((i, move_left_rect.copy()))
+
+            if can_move_right:
+                _draw_smooth_circle(self.screen, move_right_rect.center, move_radius, BLUE_SOFT)
+                self._draw_chevron(
+                    self.screen,
+                    move_right_rect.center,
+                    move_radius,
+                    BLUE_ACTION,
+                    "right",
+                )
+                self.modal_task_move_right_hitboxes.append((i, move_right_rect.copy()))
+
             if d_icon is not None:
                 self.screen.blit(d_icon, d_icon.get_rect(center=d_rect.center))
 
@@ -1749,6 +2076,12 @@ class ConfigWindow:
         self.modal_task_time.handle(event)
 
         if self.modal_chk_initial.handle(event):
+            if self.modal_chk_initial.checked:
+                self.modal_predecessor_name = None
+            else:
+                self.modal_predecessor_name = self._default_modal_predecessor(
+                    self.modal_predecessor_name
+                )
             self.modal_error = ""
             return
         if self.modal_chk_final.handle(event):
@@ -1756,6 +2089,18 @@ class ConfigWindow:
             return
 
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            self._set_modal_predecessor_hitboxes(m["pred_input"])
+
+            if self.modal_predecessor_left_hitbox.collidepoint(event.pos):
+                self._cycle_modal_predecessor(-1)
+                self.modal_error = ""
+                return
+
+            if self.modal_predecessor_right_hitbox.collidepoint(event.pos):
+                self._cycle_modal_predecessor(1)
+                self.modal_error = ""
+                return
+
             for idx, drect in self.modal_task_delete_hitboxes:
                 if drect.collidepoint(event.pos):
                     self.modal_tasks.pop(idx)
@@ -1764,6 +2109,18 @@ class ConfigWindow:
                             self._set_task_add_mode(reseed=True)
                         elif self.modal_task_edit_index > idx:
                             self.modal_task_edit_index -= 1
+                    self.modal_error = ""
+                    return
+
+            for idx, lrect in self.modal_task_move_left_hitboxes:
+                if lrect.collidepoint(event.pos):
+                    self._swap_modal_tasks(idx, idx - 1)
+                    self.modal_error = ""
+                    return
+
+            for idx, rrect in self.modal_task_move_right_hitboxes:
+                if rrect.collidepoint(event.pos):
+                    self._swap_modal_tasks(idx, idx + 1)
                     self.modal_error = ""
                     return
 
