@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(python src/logic/test_linea_produccion.py)"
+      "Bash(python src/logic/test_linea_produccion.py)",
+      "Bash(.venv/Scripts/python.exe src/logic/test_linea_produccion.py)"
     ]
   }
 }
