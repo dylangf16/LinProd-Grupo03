@@ -2,6 +2,14 @@ class Estadisticas:
     def __init__(self, linea):
         self.linea = linea
 
+    @staticmethod
+    def _es_tarea_entrada_inicial(proceso, indice_tarea, incluir_entrada_inicial):
+        return (
+            not incluir_entrada_inicial
+            and getattr(proceso, "es_inicial", False)
+            and indice_tarea == 0
+        )
+
     def _productos_finalizados(self):
         return [
             producto
@@ -15,13 +23,18 @@ class Estadisticas:
     def tiempo_total_simulacion(self):
         return self.linea.tiempo_actual
 
-    def estadisticas_por_proceso(self):
+    def estadisticas_por_proceso(self, incluir_entrada_inicial=False):
         resultados = []
 
         for proceso in self.linea.procesos:
-            espera_total = sum(
-                tarea.total_espera_acumulada() for tarea in proceso.tareas
-            )
+            espera_total = 0
+            for indice_tarea, tarea in enumerate(proceso.tareas):
+                if self._es_tarea_entrada_inicial(
+                    proceso, indice_tarea, incluir_entrada_inicial
+                ):
+                    continue
+                espera_total += tarea.total_espera_acumulada()
+
             resultados.append(
                 {
                     "proceso": proceso.nombre,
@@ -32,13 +45,18 @@ class Estadisticas:
 
         return resultados
 
-    def tarea_mayor_concentracion_espera(self):
+    def tarea_mayor_concentracion_espera(self, incluir_entrada_inicial=False):
         tarea_mayor = None
         mayor_veces = -1
         mayor_acumulado = -1
 
         for proceso in self.linea.procesos:
-            for tarea in proceso.tareas:
+            for indice_tarea, tarea in enumerate(proceso.tareas):
+                if self._es_tarea_entrada_inicial(
+                    proceso, indice_tarea, incluir_entrada_inicial
+                ):
+                    continue
+
                 veces = tarea.veces_con_espera()
                 acumulado = tarea.total_espera_acumulada()
 
@@ -92,14 +110,18 @@ class Estadisticas:
             producto.tiempo_salida - producto.tiempo_ingreso for producto in finalizados
         )
 
-    def proceso_mayor_congestion(self):
+    def proceso_mayor_congestion(self, incluir_entrada_inicial=False):
         proceso_mayor = None
         mayor_espera = -1
 
         for proceso in self.linea.procesos:
             espera_total_proceso = 0
 
-            for tarea in proceso.tareas:
+            for indice_tarea, tarea in enumerate(proceso.tareas):
+                if self._es_tarea_entrada_inicial(
+                    proceso, indice_tarea, incluir_entrada_inicial
+                ):
+                    continue
                 espera_total_proceso += tarea.total_espera_acumulada()
 
             if espera_total_proceso > mayor_espera:
@@ -113,25 +135,30 @@ class Estadisticas:
 
     def promedio_espera_tareas(self):
         total_espera = 0
-        total_registros = 0
+        total_inicios = 0
 
         for proceso in self.linea.procesos:
             for tarea in proceso.tareas:
                 total_espera += sum(tarea.historial_espera)
-                total_registros += len(tarea.historial_espera)
+                total_inicios += tarea.total_inicios
 
-        if total_registros == 0:
+        if total_inicios == 0:
             return 0
 
-        return total_espera / total_registros
+        return total_espera / total_inicios
 
-    def proceso_y_tarea_mayor_espera(self):
+    def proceso_y_tarea_mayor_espera(self, incluir_entrada_inicial=False):
         proceso_resultado = None
         tarea_resultado = None
         mayor_espera = -1
 
         for proceso in self.linea.procesos:
-            for tarea in proceso.tareas:
+            for indice_tarea, tarea in enumerate(proceso.tareas):
+                if self._es_tarea_entrada_inicial(
+                    proceso, indice_tarea, incluir_entrada_inicial
+                ):
+                    continue
+
                 espera = tarea.total_espera_acumulada()
 
                 if espera > mayor_espera:
@@ -151,7 +178,7 @@ class Estadisticas:
         print(
             f"Cantidad de productos procesados: {self.cantidad_productos_procesados()}"
         )
-        print(f"Tiempo total de simulación: {self.tiempo_total_simulacion()} segundos")
+        print(f"Tiempo total de simulación: {self.tiempo_total_simulacion()} ciclos")
 
         print()
         print("Procesos:")
@@ -171,18 +198,18 @@ class Estadisticas:
         print(f"Primer producto finalizó en: T{self.tiempo_primer_producto()}")
         print(f"Último producto finalizó en: T{self.tiempo_ultimo_producto()}")
         print(
-            f"Tiempo promedio de finalización: {self.tiempo_promedio_finalizacion():.2f} segundos"
+            f"Tiempo promedio de finalización: {self.tiempo_promedio_finalizacion():.2f} ciclos"
         )
         print(f"Proceso con mayor congestionamiento: {self.proceso_mayor_congestion()}")
         print(
-            f"Tiempo promedio de espera para iniciar una tarea: {self.promedio_espera_tareas():.2f} segundos"
+            f"Tiempo promedio de espera para iniciar una tarea: {self.promedio_espera_tareas():.2f} ciclos"
         )
         print(
             f"Proceso y tarea con mayor tiempo de espera: {self.proceso_y_tarea_mayor_espera()}"
         )
         print(
             f"Tiempo total de procesamiento (suma de todos los productos): "
-            f"{self.tiempo_total_procesamiento()} segundos"
+            f"{self.tiempo_total_procesamiento()} ciclos"
         )
         print("---------------------------------------")
 

@@ -25,6 +25,7 @@ class Tarea:
 
         # Historial para estadisticas
         self.historial_espera = []
+        self.total_inicios = 0
 
     @property
     def tiempo_procesamiento(self):
@@ -68,6 +69,7 @@ class Tarea:
         self.producto_actual = producto
         self.esta_procesando = True
         self.ticks_restantes = self.tiempo_proceso
+        self.total_inicios += 1
         producto.iniciar_proceso()
 
     def tick(self, tiempo_actual):
@@ -110,6 +112,7 @@ class Tarea:
         self.ticks_restantes = 0
         self.contenido_esperando.clear()
         self.historial_espera.clear()
+        self.total_inicios = 0
 
     def __str__(self):
         ep = "S" if self.esta_procesando else "N"
