@@ -1,16 +1,23 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from clase_producto import Producto
+
+if TYPE_CHECKING:
+    from clase_proceso import Proceso
 
 
 class LineaProduccion:
-    def __init__(self, nombre="Linea"):
-        self.nombre = nombre
-        self.procesos = []
-        self.productos = []
-        self.cantidad_ingreso = 0
-        self.tiempo_actual = 0
-        self.pausada = False
+    def __init__(self, nombre: str = "Linea"):
+        self.nombre: str = nombre
+        self.procesos: list[Proceso] = []
+        self.productos: list[Producto] = []
+        self.cantidad_ingreso: int = 0
+        self.tiempo_actual: int = 0
+        self.pausada: bool = False
 
-    def agregar_proceso(self, proceso):
+    def agregar_proceso(self, proceso: Proceso) -> None:
         if proceso.es_inicial:
             for p in self.procesos:
                 if p.es_inicial:
@@ -23,8 +30,8 @@ class LineaProduccion:
             self.procesos[-1].conectar_siguiente(proceso)
         self.procesos.append(proceso)
 
-    def eliminar_proceso(self, nombre):
-        proceso = None
+    def eliminar_proceso(self, nombre: str) -> bool:
+        proceso: Proceso | None = None
         for p in self.procesos:
             if p.nombre == nombre:
                 proceso = p
@@ -46,26 +53,26 @@ class LineaProduccion:
         self.procesos.pop(idx)
         return True
 
-    def limpiar(self):
+    def limpiar(self) -> None:
         self.procesos = []
         self.productos = []
         self.cantidad_ingreso = 0
         self.tiempo_actual = 0
         self.pausada = False
 
-    def get_proceso_inicial(self):
+    def get_proceso_inicial(self) -> Proceso | None:
         for p in self.procesos:
             if p.es_inicial:
                 return p
         return None
 
-    def get_proceso_final(self):
+    def get_proceso_final(self) -> Proceso | None:
         for p in self.procesos:
             if p.es_final:
                 return p
         return None
 
-    def cargar_productos(self, cantidad):
+    def cargar_productos(self, cantidad: int) -> None:
         cantidad = int(cantidad)
         if cantidad < 1:
             raise ValueError("La cantidad de productos debe ser >= 1")
@@ -85,7 +92,7 @@ class LineaProduccion:
             self.productos.append(producto)
             inicial.recibir_producto(producto)
 
-    def tick(self):
+    def tick(self) -> None:
         if self.pausada:
             return
         self.tiempo_actual += 1
@@ -94,7 +101,7 @@ class LineaProduccion:
         for proceso in reversed(self.procesos):
             proceso.tick(self.tiempo_actual)
 
-    def correr(self, max_ciclos=10000):
+    def correr(self, max_ciclos: int = 10000) -> None:
         ciclos = 0
         while not self.todos_finalizados() and ciclos < max_ciclos:
             if self.pausada:
@@ -102,19 +109,19 @@ class LineaProduccion:
             self.tick()
             ciclos += 1
 
-    def correr_hasta(self, t_objetivo):
+    def correr_hasta(self, t_objetivo: int) -> None:
         while self.tiempo_actual < t_objetivo and not self.todos_finalizados():
             if self.pausada:
                 break
             self.tick()
 
-    def pausar(self):
+    def pausar(self) -> None:
         self.pausada = True
 
-    def reanudar(self):
+    def reanudar(self) -> None:
         self.pausada = False
 
-    def todos_finalizados(self):
+    def todos_finalizados(self) -> bool:
         if not self.productos:
             return False
         for p in self.productos:
@@ -122,7 +129,7 @@ class LineaProduccion:
                 return False
         return True
 
-    def reiniciar(self, cantidad=None):
+    def reiniciar(self, cantidad: int | None = None) -> None:
         self.tiempo_actual = 0
         self.pausada = False
         for proceso in self.procesos:
@@ -131,7 +138,7 @@ class LineaProduccion:
             cantidad = max(1, self.cantidad_ingreso)
         self.cargar_productos(cantidad)
 
-    def estado_completo_texto(self):
+    def estado_completo_texto(self) -> str:
         lineas = []
         lineas.append(f"=== {self.nombre} | Ciclo T={self.tiempo_actual} ===")
         estado = "Pausada" if self.pausada else "En ejecucion"
@@ -170,7 +177,7 @@ class LineaProduccion:
 
         return "\n".join(lineas)
 
-    def imprimir_estado(self):
+    def imprimir_estado(self) -> None:
         print(self.estado_completo_texto())
 
     def __str__(self):
