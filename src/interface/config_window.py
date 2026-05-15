@@ -8,9 +8,9 @@ Flujo:
 
 from __future__ import annotations
 
+import atexit
 import json
 import random
-import atexit
 from pathlib import Path
 
 import pygame
@@ -236,7 +236,9 @@ class CircleToggle:
         return False
 
     def draw(self, surf: pygame.Surface, font: pygame.font.Font):
-        _draw_smooth_circle(surf, self.circle.center, 14, WHITE, border_color=TEXT_HINT, border_width=3)
+        _draw_smooth_circle(
+            surf, self.circle.center, 14, WHITE, border_color=TEXT_HINT, border_width=3
+        )
         if self.checked:
             _draw_smooth_circle(surf, self.circle.center, 7, BLUE_ACTION)
         text = font.render(self.label, True, TEXT_MID)
@@ -274,7 +276,11 @@ class HorizontalScrollBar:
 
     def _thumb_rect(self) -> pygame.Rect:
         track_len = self.rect.w
-        ratio = 1.0 if self.content_len <= self.viewport_len else self.viewport_len / self.content_len
+        ratio = (
+            1.0
+            if self.content_len <= self.viewport_len
+            else self.viewport_len / self.content_len
+        )
 
         thumb_len = max(34, int(track_len * ratio))
         travel = track_len - thumb_len
@@ -310,7 +316,10 @@ class HorizontalScrollBar:
             if self.max_offset > 0:
                 self.offset = max(
                     0.0,
-                    min(self.max_offset, self.drag_offset_origin + delta * self.max_offset / travel),
+                    min(
+                        self.max_offset,
+                        self.drag_offset_origin + delta * self.max_offset / travel,
+                    ),
                 )
             return True
 
@@ -342,7 +351,9 @@ class ConfigWindow:
         self.clock = pygame.time.Clock()
 
         self.assets_dir = Path(__file__).resolve().parent / "assets"
-        self.header_bg = self._load_image("Pantalla Configuración/Header de Pantalla Configuración.png")
+        self.header_bg = self._load_image(
+            "Pantalla Configuración/Header de Pantalla Configuración.png"
+        )
         self.icons_raw: dict[str, pygame.Surface | None] = {
             "edit": self._load_image("Iconos/Icon editar.png"),
             "delete": self._load_image("Iconos/Icon eliminar.png"),
@@ -370,18 +381,34 @@ class ConfigWindow:
         self.card_hitboxes: list[dict] = []
         self.hover_card_index: int | None = None
 
-        self.inp_cantidad = TextInput((0, 0, 140, 48), placeholder="# productos", numeric=True, max_len=4)
+        self.inp_cantidad = TextInput(
+            (0, 0, 140, 48), placeholder="# productos", numeric=True, max_len=4
+        )
 
-        self.btn_add_proc = PillButton((0, 0, 300, 52), "+ Añadir proceso", BLUE_PILL, WHITE)
-        self.btn_start = PillButton((0, 0, 300, 52), "Iniciar simulación", BLUE_PILL, WHITE)
-        self.btn_save = PillButton((0, 0, 130, 44), "Guardar JSON", BLUE_SOFT, BLUE_ACTION, border=BLUE_SOFT)
-        self.btn_load = PillButton((0, 0, 130, 44), "Cargar JSON", BLUE_SOFT, BLUE_ACTION, border=BLUE_SOFT)
+        self.btn_add_proc = PillButton(
+            (0, 0, 300, 52), "+ Añadir proceso", BLUE_PILL, WHITE
+        )
+        self.btn_start = PillButton(
+            (0, 0, 300, 52), "Iniciar simulación", BLUE_PILL, WHITE
+        )
+        self.btn_save = PillButton(
+            (0, 0, 130, 44), "Guardar JSON", BLUE_SOFT, BLUE_ACTION, border=BLUE_SOFT
+        )
+        self.btn_load = PillButton(
+            (0, 0, 130, 44), "Cargar JSON", BLUE_SOFT, BLUE_ACTION, border=BLUE_SOFT
+        )
 
         self.start_modal_open = False
         self.start_modal_error = ""
-        self.start_modal_input = TextInput((0, 0, 100, 56), placeholder="# de productos", numeric=True, max_len=4)
-        self.btn_start_modal_cancel = PillButton((0, 0, 180, 50), "Cancelar", BLUE_SOFT, BLUE_ACTION, border=BLUE_SOFT)
-        self.btn_start_modal_confirm = PillButton((0, 0, 180, 50), "Iniciar", BLUE_ACTION, WHITE)
+        self.start_modal_input = TextInput(
+            (0, 0, 100, 56), placeholder="# de productos", numeric=True, max_len=4
+        )
+        self.btn_start_modal_cancel = PillButton(
+            (0, 0, 180, 50), "Cancelar", BLUE_SOFT, BLUE_ACTION, border=BLUE_SOFT
+        )
+        self.btn_start_modal_confirm = PillButton(
+            (0, 0, 180, 50), "Iniciar", BLUE_ACTION, WHITE
+        )
 
         self.modal_open = False
         self.modal_edit_index: int | None = None
@@ -392,15 +419,28 @@ class ConfigWindow:
         self.modal_task_item_hitboxes: list[tuple[int, pygame.Rect]] = []
         self.modal_task_edit_index: int | None = None
 
-        self.modal_proc_name = TextInput((0, 0, 100, 56), placeholder="Placeholder text here...", max_len=40)
-        self.modal_task_name = TextInput((0, 0, 100, 56), placeholder="Placeholder text here...", max_len=40)
-        self.modal_task_time = TextInput((0, 0, 100, 56), placeholder="Placeholder text here...", numeric=True, max_len=5)
+        self.modal_proc_name = TextInput(
+            (0, 0, 100, 56), placeholder="Placeholder text here...", max_len=40
+        )
+        self.modal_task_name = TextInput(
+            (0, 0, 100, 56), placeholder="Placeholder text here...", max_len=40
+        )
+        self.modal_task_time = TextInput(
+            (0, 0, 100, 56),
+            placeholder="Placeholder text here...",
+            numeric=True,
+            max_len=5,
+        )
 
         self.modal_chk_initial = CircleToggle(0, 0, "Proceso inicial")
         self.modal_chk_final = CircleToggle(0, 0, "Proceso final")
 
-        self.btn_modal_add_task = PillButton((0, 0, 208, 47), "Añadir tarea", BLUE_SOFT, BLUE_ACTION, border=BLUE_SOFT)
-        self.btn_modal_apply = PillButton((0, 0, 134, 47), "Aplicar", BLUE_ACTION, WHITE)
+        self.btn_modal_add_task = PillButton(
+            (0, 0, 208, 47), "Añadir tarea", BLUE_SOFT, BLUE_ACTION, border=BLUE_SOFT
+        )
+        self.btn_modal_apply = PillButton(
+            (0, 0, 134, 47), "Aplicar", BLUE_ACTION, WHITE
+        )
 
         self.linea_resultado: LineaProduccion | None = None
 
@@ -459,7 +499,9 @@ class ConfigWindow:
         top_margin = max(10, int(h * 0.02))
 
         header_h = max(132, int(h * 0.27))
-        header_rect = pygame.Rect(margin_x, top_margin, max(560, w - 2 * margin_x), header_h)
+        header_rect = pygame.Rect(
+            margin_x, top_margin, max(560, w - 2 * margin_x), header_h
+        )
 
         content_top = header_rect.bottom + max(18, int(h * 0.02))
 
@@ -470,11 +512,22 @@ class ConfigWindow:
         start_w = max(200, int(282 * self.ui_scale))
         add_w = max(220, int(282 * self.ui_scale))
 
-        start_rect = pygame.Rect(w - margin_x - start_w, h - bottom_pad - btn_h, start_w, btn_h)
-        add_rect = pygame.Rect(start_rect.x - btn_gap - add_w, start_rect.y, add_w, btn_h)
+        start_rect = pygame.Rect(
+            w - margin_x - start_w, h - bottom_pad - btn_h, start_w, btn_h
+        )
+        add_rect = pygame.Rect(
+            start_rect.x - btn_gap - add_w, start_rect.y, add_w, btn_h
+        )
 
-        save_rect = pygame.Rect(margin_x, start_rect.y, max(124, int(136 * self.ui_scale)), btn_h)
-        load_rect = pygame.Rect(save_rect.right + 10, start_rect.y, max(124, int(136 * self.ui_scale)), btn_h)
+        save_rect = pygame.Rect(
+            margin_x, start_rect.y, max(124, int(136 * self.ui_scale)), btn_h
+        )
+        load_rect = pygame.Rect(
+            save_rect.right + 10,
+            start_rect.y,
+            max(124, int(136 * self.ui_scale)),
+            btn_h,
+        )
 
         cards_top = content_top + max(26, int(18 * self.ui_scale))
         cards_bottom = start_rect.y - max(22, int(24 * self.ui_scale))
@@ -485,7 +538,9 @@ class ConfigWindow:
             max(640, w - 2 * margin_x),
             max(130, cards_bottom - cards_top),
         )
-        cards_clip = pygame.Rect(cards_view.x, cards_view.y, cards_view.w, max(90, cards_view.h - 20))
+        cards_clip = pygame.Rect(
+            cards_view.x, cards_view.y, cards_view.w, max(90, cards_view.h - 20)
+        )
         scroll_rect = pygame.Rect(cards_view.x, cards_view.bottom - 8, cards_view.w, 8)
 
         modal_margin_x = max(20, int(w * 0.03))
@@ -573,7 +628,9 @@ class ConfigWindow:
             "hint_y": hint_y,
         }
 
-    def _modal_layout(self, panel: pygame.Rect) -> dict[str, pygame.Rect | tuple[int, int]]:
+    def _modal_layout(
+        self, panel: pygame.Rect
+    ) -> dict[str, pygame.Rect | tuple[int, int]]:
         pad_x = max(34, int(66 * self.ui_scale))
         top = panel.y + max(26, int(46 * self.ui_scale))
 
@@ -589,11 +646,26 @@ class ConfigWindow:
             right_x = left_x + left_w + max(20, int(26 * self.ui_scale))
             right_w = panel.right - right_x - max(24, int(34 * self.ui_scale))
 
-        proc_input = pygame.Rect(left_x, top + max(48, int(58 * self.ui_scale)), left_w, max(44, int(56 * self.ui_scale)))
+        proc_input = pygame.Rect(
+            left_x,
+            top + max(48, int(58 * self.ui_scale)),
+            left_w,
+            max(44, int(56 * self.ui_scale)),
+        )
         checks_y = proc_input.bottom + max(18, int(24 * self.ui_scale))
 
-        task_name = pygame.Rect(left_x, checks_y + max(100, int(108 * self.ui_scale)), left_w, max(44, int(56 * self.ui_scale)))
-        task_time = pygame.Rect(left_x, task_name.bottom + max(70, int(84 * self.ui_scale)), left_w, max(44, int(56 * self.ui_scale)))
+        task_name = pygame.Rect(
+            left_x,
+            checks_y + max(100, int(108 * self.ui_scale)),
+            left_w,
+            max(44, int(56 * self.ui_scale)),
+        )
+        task_time = pygame.Rect(
+            left_x,
+            task_name.bottom + max(70, int(84 * self.ui_scale)),
+            left_w,
+            max(44, int(56 * self.ui_scale)),
+        )
 
         add_task_btn = pygame.Rect(
             left_x + (left_w - max(180, int(208 * self.ui_scale))) // 2,
@@ -737,7 +809,9 @@ class ConfigWindow:
         try:
             if cls.CURRENT_FILE.exists():
                 cls.CURRENT_FILE.unlink()
-                print(f"[INFO] Archivo temporal eliminado: '{cls.CURRENT_FILE.as_posix()}'.")
+                print(
+                    f"[INFO] Archivo temporal eliminado: '{cls.CURRENT_FILE.as_posix()}'."
+                )
         except Exception as exc:
             print(f"[WARN] No se pudo eliminar '{cls.CURRENT_FILE.as_posix()}': {exc}")
 
@@ -819,13 +893,19 @@ class ConfigWindow:
     def _cargar_json(self):
         data = self._read_config_file(self.CONFIG_FILE, "configuracion guardada")
         if data is None:
-            print(f"[ERROR] Archivo '{self.CONFIG_FILE.as_posix()}' no encontrado o invalido.")
+            print(
+                f"[ERROR] Archivo '{self.CONFIG_FILE.as_posix()}' no encontrado o invalido."
+            )
             return
 
         self._load_data_into_ui(data)
-        self._write_config_file(self.CURRENT_FILE, self._current_data_payload(), "Configuracion actual")
+        self._write_config_file(
+            self.CURRENT_FILE, self._current_data_payload(), "Configuracion actual"
+        )
         cantidad = data.get("cantidad_ingreso", 0)
-        print(f"[INFO] Cargados {len(self.procesos_cfg)} proceso(s), cantidad={cantidad}.")
+        print(
+            f"[INFO] Cargados {len(self.procesos_cfg)} proceso(s), cantidad={cantidad}."
+        )
 
     def _construir_linea(self) -> LineaProduccion | None:
         if not self.procesos_cfg:
@@ -836,14 +916,20 @@ class ConfigWindow:
         finales = [p for p in self.procesos_cfg if p.get("es_final")]
 
         if len(iniciales) != 1:
-            print(f"[ERROR] Se requiere exactamente 1 proceso inicial (hay {len(iniciales)}).")
+            print(
+                f"[ERROR] Se requiere exactamente 1 proceso inicial (hay {len(iniciales)})."
+            )
             return None
         if len(finales) != 1:
-            print(f"[ERROR] Se requiere exactamente 1 proceso final (hay {len(finales)}).")
+            print(
+                f"[ERROR] Se requiere exactamente 1 proceso final (hay {len(finales)})."
+            )
             return None
 
         if len(self.procesos_cfg) > 1 and iniciales[0] is finales[0]:
-            print("[ERROR] Inicial y final deben ser procesos distintos si hay más de un proceso.")
+            print(
+                "[ERROR] Inicial y final deben ser procesos distintos si hay más de un proceso."
+            )
             return None
 
         for pc in self.procesos_cfg:
@@ -873,7 +959,9 @@ class ConfigWindow:
             linea.agregar_proceso(proceso)
 
         linea.cantidad_ingreso = cantidad
-        self._write_config_file(self.CURRENT_FILE, self._current_data_payload(), "Configuracion actual")
+        self._write_config_file(
+            self.CURRENT_FILE, self._current_data_payload(), "Configuracion actual"
+        )
         self.linea_resultado = linea
         return linea
 
@@ -898,7 +986,10 @@ class ConfigWindow:
                 "es_inicial": bool(proc.get("es_inicial")),
                 "es_final": bool(proc.get("es_final")),
                 "tareas": [
-                    {"nombre": str(t.get("nombre", "")), "tiempo": int(t.get("tiempo", 1))}
+                    {
+                        "nombre": str(t.get("nombre", "")),
+                        "tiempo": int(t.get("tiempo", 1)),
+                    }
                     for t in proc.get("tareas", [])
                 ],
             }
@@ -947,7 +1038,9 @@ class ConfigWindow:
         self.inp_cantidad.text = str(cantidad)
         result = self._construir_linea()
         if result is None:
-            self.start_modal_error = "No se pudo iniciar. Revisa la configuración de procesos."
+            self.start_modal_error = (
+                "No se pudo iniciar. Revisa la configuración de procesos."
+            )
             return
 
         self._close_start_modal()
@@ -1010,7 +1103,10 @@ class ConfigWindow:
             "nombre": name,
             "es_inicial": self.modal_chk_initial.checked,
             "es_final": self.modal_chk_final.checked,
-            "tareas": [{"nombre": t["nombre"], "tiempo": int(t["tiempo"])} for t in self.modal_tasks],
+            "tareas": [
+                {"nombre": t["nombre"], "tiempo": int(t["tiempo"])}
+                for t in self.modal_tasks
+            ],
         }
 
         if not self._modal_validate_flags(data):
@@ -1055,9 +1151,13 @@ class ConfigWindow:
         self.screen.blit(title, (title_x, title_y))
         self.screen.blit(subtitle, (title_x, title_y + title.get_height() + title_gap))
 
-        member_surfaces = [self.font_tiny.render(name, True, TEXT_SOFT) for name in self.TEAM_MEMBERS]
+        member_surfaces = [
+            self.font_tiny.render(name, True, TEXT_SOFT) for name in self.TEAM_MEMBERS
+        ]
         line_gap = max(3, int(4 * self.ui_scale))
-        block_h = sum(s.get_height() for s in member_surfaces) + line_gap * max(0, len(member_surfaces) - 1)
+        block_h = sum(s.get_height() for s in member_surfaces) + line_gap * max(
+            0, len(member_surfaces) - 1
+        )
         block_w = max((s.get_width() for s in member_surfaces), default=0)
 
         right_pad = max(12, int(18 * self.ui_scale))
@@ -1082,10 +1182,17 @@ class ConfigWindow:
             border_width=2 if hovered else 1,
         )
 
-        icon_box = pygame.Rect(rect.x + 18, rect.y + 20, max(52, int(72 * self.ui_scale)), max(52, int(72 * self.ui_scale)))
+        icon_box = pygame.Rect(
+            rect.x + 18,
+            rect.y + 20,
+            max(52, int(72 * self.ui_scale)),
+            max(52, int(72 * self.ui_scale)),
+        )
         _draw_smooth_rounded_rect(self.screen, icon_box, CARD_IMAGE_BG, 10)
 
-        picon = self._get_icon(self._process_icon_name(proc_cfg), max(24, int(34 * self.ui_scale)))
+        picon = self._get_icon(
+            self._process_icon_name(proc_cfg), max(24, int(34 * self.ui_scale))
+        )
         if picon is not None:
             p_rect = picon.get_rect(center=icon_box.center)
             self.screen.blit(picon, p_rect)
@@ -1103,14 +1210,22 @@ class ConfigWindow:
         bullet_y = rect.y + max(136, int(168 * self.ui_scale))
         c_tareas = len(proc_cfg.get("tareas", []))
         sum_t = self._sum_task_time(proc_cfg)
-        line1 = self.font_body.render(f"• Cantidad de Tareas: {c_tareas}", True, TEXT_MID)
+        line1 = self.font_body.render(
+            f"• Cantidad de Tareas: {c_tareas}", True, TEXT_MID
+        )
         line2 = self.font_body.render(f"• Tiempo de ejecución: {sum_t}", True, TEXT_MID)
         self.screen.blit(line1, (rect.x + 24, bullet_y))
         self.screen.blit(line2, (rect.x + 24, bullet_y + line1.get_height() + 10))
 
         radius = max(20, int(30 * self.ui_scale))
-        del_center = (rect.right - max(40, int(52 * self.ui_scale)), rect.bottom - max(34, int(48 * self.ui_scale)))
-        edit_center = (del_center[0] - (radius * 2 + max(10, int(12 * self.ui_scale))), del_center[1])
+        del_center = (
+            rect.right - max(40, int(52 * self.ui_scale)),
+            rect.bottom - max(34, int(48 * self.ui_scale)),
+        )
+        edit_center = (
+            del_center[0] - (radius * 2 + max(10, int(12 * self.ui_scale))),
+            del_center[1],
+        )
 
         _draw_smooth_circle(self.screen, edit_center, radius, BLUE_CARD)
         _draw_smooth_circle(self.screen, del_center, radius, BLUE_CARD)
@@ -1152,7 +1267,9 @@ class ConfigWindow:
 
         self.cards_scrollbar.set_rect(scroll_rect)
         self.cards_scrollbar.set_lengths(max(1, total), max(1, cards_clip.w))
-        self.cards_scrollbar.offset = max(0.0, min(self.cards_scrollbar.max_offset, self.cards_scroll))
+        self.cards_scrollbar.offset = max(
+            0.0, min(self.cards_scrollbar.max_offset, self.cards_scroll)
+        )
         self.cards_scroll = self.cards_scrollbar.offset
 
         self.card_hitboxes = []
@@ -1165,7 +1282,10 @@ class ConfigWindow:
             draw_x = cards_clip.x + int(x_in_content - self.cards_scroll)
             draw_rect = pygame.Rect(draw_x, cards_clip.y + 4, card_w, card_h)
 
-            if draw_rect.right < cards_clip.left - 10 or draw_rect.left > cards_clip.right + 10:
+            if (
+                draw_rect.right < cards_clip.left - 10
+                or draw_rect.left > cards_clip.right + 10
+            ):
                 continue
             self._draw_process_card(proc_idx, proc_cfg, draw_rect)
 
@@ -1191,7 +1311,9 @@ class ConfigWindow:
         self._draw_header(layout)
 
         cp = layout["count_pos"]
-        count_txt = self.font_h2.render(f"{len(self.procesos_cfg)} Procesos configurado", True, TEXT_DARK)
+        count_txt = self.font_h2.render(
+            f"{len(self.procesos_cfg)} Procesos configurado", True, TEXT_DARK
+        )
         self.screen.blit(count_txt, cp)
 
         self._draw_processes(layout)
@@ -1216,23 +1338,33 @@ class ConfigWindow:
         self.modal_task_name.set_rect(m["task_name"])
         self.modal_task_time.set_rect(m["task_time"])
         self.modal_chk_initial.set_pos(m["proc_input"].x, m["checks_y"])
-        self.modal_chk_final.set_pos(m["proc_input"].x + m["proc_input"].w // 2 + 8, m["checks_y"])
+        self.modal_chk_final.set_pos(
+            m["proc_input"].x + m["proc_input"].w // 2 + 8, m["checks_y"]
+        )
         self.btn_modal_add_task.set_rect(m["add_task_btn"])
         self.btn_modal_apply.set_rect(m["apply_btn"])
 
         title = self.font_h1.render("Nombre del Proceso", True, TEXT_DARK)
-        self.screen.blit(title, (m["proc_input"].x, m["proc_input"].y - title.get_height() - 22))
+        self.screen.blit(
+            title, (m["proc_input"].x, m["proc_input"].y - title.get_height() - 22)
+        )
 
         self.modal_proc_name.draw(self.screen, self.font_body)
         self.modal_chk_initial.draw(self.screen, self.font_h2)
         self.modal_chk_final.draw(self.screen, self.font_h2)
 
         tname_lbl = self.font_h2.render("Nombre de la tarea", True, TEXT_MID)
-        self.screen.blit(tname_lbl, (m["task_name"].x, m["task_name"].y - tname_lbl.get_height() - 12))
+        self.screen.blit(
+            tname_lbl,
+            (m["task_name"].x, m["task_name"].y - tname_lbl.get_height() - 12),
+        )
         self.modal_task_name.draw(self.screen, self.font_body)
 
         ttime_lbl = self.font_h2.render("Tiempo de tarea", True, TEXT_MID)
-        self.screen.blit(ttime_lbl, (m["task_time"].x, m["task_time"].y - ttime_lbl.get_height() - 12))
+        self.screen.blit(
+            ttime_lbl,
+            (m["task_time"].x, m["task_time"].y - ttime_lbl.get_height() - 12),
+        )
         self.modal_task_time.draw(self.screen, self.font_body)
         ciclos = self.font_small.render("Ciclos", True, TEXT_HINT)
         self.screen.blit(ciclos, (m["task_time"].x, m["task_time"].bottom + 5))
@@ -1262,7 +1394,10 @@ class ConfigWindow:
         for i, task in enumerate(self.modal_tasks):
             item_y = list_clip.y + i * (item_h + item_gap) - int(self.modal_task_scroll)
             item_rect = pygame.Rect(list_clip.x, item_y, list_clip.w, item_h)
-            if item_rect.bottom < list_clip.top - 2 or item_rect.top > list_clip.bottom + 2:
+            if (
+                item_rect.bottom < list_clip.top - 2
+                or item_rect.top > list_clip.bottom + 2
+            ):
                 continue
 
             selected = i == self.modal_task_edit_index
@@ -1290,11 +1425,22 @@ class ConfigWindow:
             nm_s = self.font_h2.render(nm, True, TEXT_MID)
             cy_s = self.font_body.render(f"#{task['tiempo']} ciclos", True, TEXT_SOFT)
             self.screen.blit(nm_s, (tx, item_rect.y + max(14, int(16 * self.ui_scale))))
-            self.screen.blit(cy_s, (tx, item_rect.y + max(16, int(18 * self.ui_scale)) + nm_s.get_height()))
+            self.screen.blit(
+                cy_s,
+                (
+                    tx,
+                    item_rect.y + max(16, int(18 * self.ui_scale)) + nm_s.get_height(),
+                ),
+            )
 
             d_icon = self._get_icon("delete", max(16, int(22 * self.ui_scale)))
-            d_rect = pygame.Rect(0, 0, max(26, int(30 * self.ui_scale)), max(26, int(30 * self.ui_scale)))
-            d_rect.center = (item_rect.right - max(26, int(34 * self.ui_scale)), item_rect.centery)
+            d_rect = pygame.Rect(
+                0, 0, max(26, int(30 * self.ui_scale)), max(26, int(30 * self.ui_scale))
+            )
+            d_rect.center = (
+                item_rect.right - max(26, int(34 * self.ui_scale)),
+                item_rect.centery,
+            )
             if d_icon is not None:
                 self.screen.blit(d_icon, d_icon.get_rect(center=d_rect.center))
 
@@ -1305,7 +1451,9 @@ class ConfigWindow:
 
         if max_scroll > 0:
             track_w = max(6, int(8 * self.ui_scale))
-            track = pygame.Rect(list_clip.right - track_w, list_clip.y, track_w, list_clip.h)
+            track = pygame.Rect(
+                list_clip.right - track_w, list_clip.y, track_w, list_clip.h
+            )
             _draw_smooth_rounded_rect(self.screen, track, _hex_to_rgb("E7ECF9"), 4)
             thumb_h = max(26, int(list_clip.h * (list_clip.h / max(1.0, content_h))))
             travel = max(1, list_clip.h - thumb_h)
@@ -1314,12 +1462,17 @@ class ConfigWindow:
             _draw_smooth_rounded_rect(self.screen, thumb, _hex_to_rgb("A8BCE6"), 4)
 
         if not self.modal_tasks:
-            empty = self.font_body.render("Agrega tareas para este proceso.", True, TEXT_HINT)
+            empty = self.font_body.render(
+                "Agrega tareas para este proceso.", True, TEXT_HINT
+            )
             self.screen.blit(empty, (list_clip.x + 8, list_clip.y + 8))
 
         if self.modal_error:
             err = self.font_small.render(self.modal_error, True, _hex_to_rgb("B73232"))
-            self.screen.blit(err, (m["proc_input"].x, panel.bottom - max(52, int(68 * self.ui_scale))))
+            self.screen.blit(
+                err,
+                (m["proc_input"].x, panel.bottom - max(52, int(68 * self.ui_scale))),
+            )
 
     def _draw_start_modal(self, sm: dict[str, pygame.Rect | int]):
         panel = sm["panel"]
@@ -1348,15 +1501,21 @@ class ConfigWindow:
         self.screen.blit(section, (top_x, int(sm["section_y"])))
 
         self.start_modal_input.draw(self.screen, self.font_body)
-        hint = self.font_small.render("Cantidad de productos a ingresar", True, TEXT_HINT)
+        hint = self.font_small.render(
+            "Cantidad de productos a ingresar", True, TEXT_HINT
+        )
         self.screen.blit(hint, (self.start_modal_input.rect.x, int(sm["hint_y"])))
 
         self.btn_start_modal_cancel.draw(self.screen, self.font_h2)
         self.btn_start_modal_confirm.draw(self.screen, self.font_h2)
 
         if self.start_modal_error:
-            err = self.font_small.render(self.start_modal_error, True, _hex_to_rgb("B73232"))
-            self.screen.blit(err, (top_x, self.btn_start_modal_cancel.rect.y - err.get_height() - 8))
+            err = self.font_small.render(
+                self.start_modal_error, True, _hex_to_rgb("B73232")
+            )
+            self.screen.blit(
+                err, (top_x, self.btn_start_modal_cancel.rect.y - err.get_height() - 8)
+            )
 
     def _handle_main_event(self, event: pygame.event.Event, layout: dict):
         if event.type == pygame.MOUSEMOTION:
@@ -1378,7 +1537,9 @@ class ConfigWindow:
         if event.type == pygame.MOUSEWHEEL:
             mx, my = pygame.mouse.get_pos()
             if layout["cards_clip"].collidepoint((mx, my)):
-                self.cards_scrollbar.scroll_pixels(-event.y * max(50, int(72 * self.ui_scale)))
+                self.cards_scrollbar.scroll_pixels(
+                    -event.y * max(50, int(72 * self.ui_scale))
+                )
                 self.cards_scroll = self.cards_scrollbar.offset
                 return
 
@@ -1407,7 +1568,9 @@ class ConfigWindow:
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_F11:
                 info = pygame.display.Info()
-                self.screen = pygame.display.set_mode((info.current_w, info.current_h), pygame.RESIZABLE)
+                self.screen = pygame.display.set_mode(
+                    (info.current_w, info.current_h), pygame.RESIZABLE
+                )
                 return
             if event.key == pygame.K_s and (event.mod & pygame.KMOD_CTRL):
                 self._guardar_json()
@@ -1416,7 +1579,9 @@ class ConfigWindow:
                 self._cargar_json()
                 return
 
-    def _handle_start_modal_event(self, event: pygame.event.Event, sm: dict[str, pygame.Rect | int]):
+    def _handle_start_modal_event(
+        self, event: pygame.event.Event, sm: dict[str, pygame.Rect | int]
+    ):
         self.start_modal_input.set_rect(sm["input"])
         self.btn_start_modal_cancel.set_rect(sm["cancel"])
         self.btn_start_modal_confirm.set_rect(sm["confirm"])
@@ -1442,7 +1607,9 @@ class ConfigWindow:
                 self._confirm_start_modal()
                 return
 
-    def _handle_modal_event(self, event: pygame.event.Event, panel: pygame.Rect, m: dict):
+    def _handle_modal_event(
+        self, event: pygame.event.Event, panel: pygame.Rect, m: dict
+    ):
         if m is None:
             m = self._modal_layout(panel)
 
@@ -1495,16 +1662,24 @@ class ConfigWindow:
             if clip_rect.collidepoint((mx, my)):
                 item_h = max(70, int(84 * self.ui_scale))
                 item_gap = max(8, int(12 * self.ui_scale))
-                content_h = len(self.modal_tasks) * (item_h + item_gap) - item_gap if self.modal_tasks else 0
+                content_h = (
+                    len(self.modal_tasks) * (item_h + item_gap) - item_gap
+                    if self.modal_tasks
+                    else 0
+                )
                 max_scroll = max(0.0, float(content_h - clip_rect.h))
-                self.modal_task_scroll = max(0.0, min(max_scroll, self.modal_task_scroll - event.y * 40.0))
+                self.modal_task_scroll = max(
+                    0.0, min(max_scroll, self.modal_task_scroll - event.y * 40.0)
+                )
                 return
 
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_ESCAPE:
                 self._close_modal()
                 return
-            if event.key == pygame.K_RETURN and (self.modal_task_name.active or self.modal_task_time.active):
+            if event.key == pygame.K_RETURN and (
+                self.modal_task_name.active or self.modal_task_time.active
+            ):
                 self._modal_add_task()
                 return
 
@@ -1516,8 +1691,12 @@ class ConfigWindow:
             self._refresh_fonts()
 
             layout = self._layout()
-            modal_layout = self._modal_layout(layout["modal"]) if self.modal_open else None
-            start_modal_layout = self._start_modal_layout() if self.start_modal_open else None
+            modal_layout = (
+                self._modal_layout(layout["modal"]) if self.modal_open else None
+            )
+            start_modal_layout = (
+                self._start_modal_layout() if self.start_modal_open else None
+            )
 
             if self.modal_open:
                 self.modal_proc_name.update(dt)
@@ -1538,7 +1717,10 @@ class ConfigWindow:
                     self._refresh_fonts()
                     continue
 
-                if event.type == pygame.USEREVENT and event.dict.get("action") == "finish":
+                if (
+                    event.type == pygame.USEREVENT
+                    and event.dict.get("action") == "finish"
+                ):
                     running = False
                     continue
 

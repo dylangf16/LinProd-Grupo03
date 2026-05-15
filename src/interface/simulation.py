@@ -389,7 +389,11 @@ class SimulationWindow:
     def _load_image(self, path: Path) -> pygame.Surface | None:
         try:
             image = pygame.image.load(str(path))
-            return image.convert_alpha() if image.get_alpha() is not None else image.convert()
+            return (
+                image.convert_alpha()
+                if image.get_alpha() is not None
+                else image.convert()
+            )
         except Exception:
             return None
 
@@ -432,7 +436,9 @@ class SimulationWindow:
         self.asset_background = bg
 
     @staticmethod
-    def _cover_surface(image: pygame.Surface, width: int, height: int) -> pygame.Surface:
+    def _cover_surface(
+        image: pygame.Surface, width: int, height: int
+    ) -> pygame.Surface:
         iw, ih = image.get_size()
         if iw <= 0 or ih <= 0 or width <= 0 or height <= 0:
             return pygame.Surface((max(1, width), max(1, height)))
@@ -733,7 +739,8 @@ class SimulationWindow:
         newly_finished = [
             pid
             for pid, loc in new_locs.items()
-            if loc[0] == "final" and (pid not in old_locs or old_locs[pid][0] != "final")
+            if loc[0] == "final"
+            and (pid not in old_locs or old_locs[pid][0] != "final")
         ]
         if newly_finished:
             self._register_finished(sorted(newly_finished))
@@ -801,7 +808,9 @@ class SimulationWindow:
                 return
 
             if event.type == pygame.VIDEORESIZE:
-                self.screen = pygame.display.set_mode((event.w, event.h), pygame.RESIZABLE)
+                self.screen = pygame.display.set_mode(
+                    (event.w, event.h), pygame.RESIZABLE
+                )
                 self._refresh_layout()
                 self._rebuild_layout()
                 self._snap_sprites_to_locations()
@@ -859,7 +868,9 @@ class SimulationWindow:
         )
 
         title = self.font_title.render("Simulacion", True, TEXT_DARK)
-        self.screen.blit(title, (self.sidebar_rect.x + INNER_PAD, self.sidebar_rect.y + 24))
+        self.screen.blit(
+            title, (self.sidebar_rect.x + INNER_PAD, self.sidebar_rect.y + 24)
+        )
 
         total, por_procesar, procesando, procesados = self._status_counts()
 
@@ -873,8 +884,12 @@ class SimulationWindow:
         )
         summary_main = self.font_h.render(f"{total} Productos", True, TEXT_DARK)
         summary_sub = self.font_sm.render("Lote cargado", True, TEXT_SOFT)
-        self.screen.blit(summary_main, (self.summary_rect.x + 14, self.summary_rect.y + 16))
-        self.screen.blit(summary_sub, (self.summary_rect.x + 14, self.summary_rect.y + 52))
+        self.screen.blit(
+            summary_main, (self.summary_rect.x + 14, self.summary_rect.y + 16)
+        )
+        self.screen.blit(
+            summary_sub, (self.summary_rect.x + 14, self.summary_rect.y + 52)
+        )
 
         _draw_rounded_rect(
             self.screen,
@@ -912,7 +927,9 @@ class SimulationWindow:
             )
             y += row_h
 
-        self.btn_start.enabled = (not self.playing) and (not self.linea.todos_finalizados())
+        self.btn_start.enabled = (not self.playing) and (
+            not self.linea.todos_finalizados()
+        )
         self.btn_pause.enabled = self.playing
         self.btn_reconfigure.enabled = True
         self.btn_snapshot.enabled = True
@@ -940,7 +957,10 @@ class SimulationWindow:
             toast_txt = self.font_sm.render(self.toast_message, True, (45, 70, 129))
             self.screen.blit(
                 toast_txt,
-                (toast_rect.x + 10, toast_rect.y + (toast_rect.h - toast_txt.get_height()) // 2),
+                (
+                    toast_rect.x + 10,
+                    toast_rect.y + (toast_rect.h - toast_txt.get_height()) // 2,
+                ),
             )
 
     def _draw_world(self):
@@ -1037,7 +1057,9 @@ class SimulationWindow:
                 True,
                 TEXT_MID,
             )
-            self.world.blit(first_txt, (self.finish_rect.x + 16, self.finish_rect.y + 70))
+            self.world.blit(
+                first_txt, (self.finish_rect.x + 16, self.finish_rect.y + 70)
+            )
 
         if self.hidden_finished_count > 0:
             hidden_txt = self.font_sm.render(
@@ -1045,12 +1067,16 @@ class SimulationWindow:
                 True,
                 TEXT_MID,
             )
-            self.world.blit(hidden_txt, (self.finish_rect.x + 16, self.finish_rect.y + 92))
+            self.world.blit(
+                hidden_txt, (self.finish_rect.x + 16, self.finish_rect.y + 92)
+            )
 
         for sprite in self.product_sprites.values():
             if not sprite.visible:
                 continue
-            rect = self.asset_prod.get_rect(center=(int(sprite.pos.x), int(sprite.pos.y)))
+            rect = self.asset_prod.get_rect(
+                center=(int(sprite.pos.x), int(sprite.pos.y))
+            )
             self.world.blit(self.asset_prod, rect.topleft)
 
             id_txt = self.font_sm.render(str(sprite.pid), True, (24, 24, 24))
@@ -1071,10 +1097,15 @@ class SimulationWindow:
         state_color = GOOD if self.playing else TEXT_MID
         subtitle = self.font_sm.render(f"Estado: {state}", True, state_color)
 
-        self.screen.blit(title, (self.sim_panel_rect.x + INNER_PAD, self.sim_panel_rect.y + 20))
+        self.screen.blit(
+            title, (self.sim_panel_rect.x + INNER_PAD, self.sim_panel_rect.y + 20)
+        )
         self.screen.blit(
             subtitle,
-            (self.sim_panel_rect.x + INNER_PAD + title.get_width() + 14, self.sim_panel_rect.y + 30),
+            (
+                self.sim_panel_rect.x + INNER_PAD + title.get_width() + 14,
+                self.sim_panel_rect.y + 30,
+            ),
         )
 
         self.screen.blit(self._get_view_background(), self.view_rect.topleft)
