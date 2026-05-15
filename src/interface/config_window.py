@@ -1433,7 +1433,7 @@ class ConfigWindow:
 
         right_pad = max(12, int(18 * self.ui_scale))
         members_x = middle_rect.right - right_pad - block_w
-        members_y = middle_rect.y + max(0, (middle_rect.h - block_h) // 2)
+        members_y = middle_rect.y + max(0, (middle_rect.h - block_h) // 2) + 4
 
         current_y = members_y
         for txt in member_surfaces:

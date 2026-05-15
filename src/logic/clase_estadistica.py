@@ -1,6 +1,11 @@
+from __future__ import annotations
+
+from clase_linea_produccion import LineaProduccion
+
+
 class Estadisticas:
-    def __init__(self, linea):
-        self.linea = linea
+    def __init__(self, linea: LineaProduccion):
+        self.linea: LineaProduccion = linea
 
     def cantidad_productos_procesados(self):
         cantidad = 0
