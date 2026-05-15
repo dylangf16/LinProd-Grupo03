@@ -377,6 +377,12 @@ class ConfigWindow:
         self.btn_save = PillButton((0, 0, 130, 44), "Guardar JSON", BLUE_SOFT, BLUE_ACTION, border=BLUE_SOFT)
         self.btn_load = PillButton((0, 0, 130, 44), "Cargar JSON", BLUE_SOFT, BLUE_ACTION, border=BLUE_SOFT)
 
+        self.start_modal_open = False
+        self.start_modal_error = ""
+        self.start_modal_input = TextInput((0, 0, 100, 56), placeholder="# de productos", numeric=True, max_len=4)
+        self.btn_start_modal_cancel = PillButton((0, 0, 180, 50), "Cancelar", BLUE_SOFT, BLUE_ACTION, border=BLUE_SOFT)
+        self.btn_start_modal_confirm = PillButton((0, 0, 180, 50), "Iniciar", BLUE_ACTION, WHITE)
+
         self.modal_open = False
         self.modal_edit_index: int | None = None
         self.modal_tasks: list[dict] = []
@@ -467,9 +473,7 @@ class ConfigWindow:
         start_rect = pygame.Rect(w - margin_x - start_w, h - bottom_pad - btn_h, start_w, btn_h)
         add_rect = pygame.Rect(start_rect.x - btn_gap - add_w, start_rect.y, add_w, btn_h)
 
-        qty_w = max(128, int(138 * self.ui_scale))
-        qty_rect = pygame.Rect(margin_x, start_rect.y + 1, qty_w, btn_h - 2)
-        save_rect = pygame.Rect(qty_rect.right + 12, start_rect.y, max(124, int(136 * self.ui_scale)), btn_h)
+        save_rect = pygame.Rect(margin_x, start_rect.y, max(124, int(136 * self.ui_scale)), btn_h)
         load_rect = pygame.Rect(save_rect.right + 10, start_rect.y, max(124, int(136 * self.ui_scale)), btn_h)
 
         cards_top = content_top + max(26, int(18 * self.ui_scale))
@@ -500,10 +504,73 @@ class ConfigWindow:
             "cards_scroll": scroll_rect,
             "add_btn": add_rect,
             "start_btn": start_rect,
-            "qty_input": qty_rect,
             "save_btn": save_rect,
             "load_btn": load_rect,
             "modal": modal_rect,
+        }
+
+    def _start_modal_layout(self) -> dict[str, pygame.Rect | int]:
+        w, h = self.screen.get_size()
+
+        panel_w = min(700, max(430, int(w * 0.52)), w - 48)
+        panel_h = min(320, max(250, int(h * 0.34)), h - 56)
+        panel = pygame.Rect((w - panel_w) // 2, (h - panel_h) // 2, panel_w, panel_h)
+
+        side_pad = max(24, int(30 * self.ui_scale))
+        top_pad = max(18, int(22 * self.ui_scale))
+
+        title_h = self.font_h1.get_height()
+        subtitle_h = self.font_body.get_height()
+        section_h = self.font_h2.get_height()
+        input_h = max(42, int(50 * self.ui_scale))
+        hint_h = self.font_small.get_height()
+
+        gap_title = max(4, int(6 * self.ui_scale))
+        gap_sub = max(8, int(10 * self.ui_scale))
+        gap_input = max(10, int(12 * self.ui_scale))
+        gap_hint = max(6, int(7 * self.ui_scale))
+
+        btn_h = max(40, int(48 * self.ui_scale))
+        btn_bottom_pad = max(20, int(24 * self.ui_scale))
+        btn_y = panel.bottom - btn_bottom_pad - btn_h
+
+        content_top = panel.y + top_pad
+        content_bottom = btn_y - max(12, int(16 * self.ui_scale))
+        available = max(0, content_bottom - content_top)
+        required = title_h + subtitle_h + section_h + input_h + hint_h
+        base_gaps = gap_title + gap_sub + gap_input + gap_hint
+
+        extra = max(0, available - required - base_gaps)
+        gap_sub += extra // 2
+        gap_input += extra - (extra // 2)
+
+        title_y = content_top
+        subtitle_y = title_y + title_h + gap_title
+        section_y = subtitle_y + subtitle_h + gap_sub
+        input_top = section_y + section_h + gap_input
+        hint_y = input_top + input_h + gap_hint
+
+        input_rect = pygame.Rect(
+            panel.x + side_pad,
+            input_top,
+            panel.w - side_pad * 2,
+            input_h,
+        )
+
+        btn_gap = max(12, int(18 * self.ui_scale))
+        btn_w = (panel.w - side_pad * 2 - btn_gap) // 2
+        cancel_btn = pygame.Rect(panel.x + side_pad, btn_y, btn_w, btn_h)
+        confirm_btn = pygame.Rect(cancel_btn.right + btn_gap, btn_y, btn_w, btn_h)
+
+        return {
+            "panel": panel,
+            "input": input_rect,
+            "cancel": cancel_btn,
+            "confirm": confirm_btn,
+            "title_y": title_y,
+            "subtitle_y": subtitle_y,
+            "section_y": section_y,
+            "hint_y": hint_y,
         }
 
     def _modal_layout(self, panel: pygame.Rect) -> dict[str, pygame.Rect | tuple[int, int]]:
@@ -854,6 +921,38 @@ class ConfigWindow:
         self.modal_task_name.active = False
         self.modal_task_time.active = False
 
+    def _open_start_modal(self):
+        self.start_modal_open = True
+        self.start_modal_error = ""
+        self.start_modal_input.text = self.inp_cantidad.text.strip() or "1"
+        self.start_modal_input.active = True
+
+    def _close_start_modal(self):
+        self.start_modal_open = False
+        self.start_modal_error = ""
+        self.start_modal_input.active = False
+
+    def _confirm_start_modal(self):
+        qty_text = self.start_modal_input.text.strip() or "1"
+        try:
+            cantidad = int(qty_text)
+        except ValueError:
+            self.start_modal_error = "La cantidad de productos debe ser un entero >= 1."
+            return
+
+        if cantidad < 1:
+            self.start_modal_error = "La cantidad de productos debe ser un entero >= 1."
+            return
+
+        self.inp_cantidad.text = str(cantidad)
+        result = self._construir_linea()
+        if result is None:
+            self.start_modal_error = "No se pudo iniciar. Revisa la configuración de procesos."
+            return
+
+        self._close_start_modal()
+        pygame.event.post(pygame.event.Event(pygame.USEREVENT, {"action": "finish"}))
+
     def _modal_add_task(self):
         name = self.modal_task_name.text.strip()
         time_s = self.modal_task_time.text.strip()
@@ -1080,12 +1179,7 @@ class ConfigWindow:
         self.btn_start.set_rect(layout["start_btn"])
         self.btn_save.set_rect(layout["save_btn"])
         self.btn_load.set_rect(layout["load_btn"])
-        self.inp_cantidad.set_rect(layout["qty_input"])
 
-        qty_label = self.font_small.render("Cantidad de productos", True, TEXT_SOFT)
-        self.screen.blit(qty_label, (self.inp_cantidad.rect.x, self.inp_cantidad.rect.y - qty_label.get_height() - 7))
-
-        self.inp_cantidad.draw(self.screen, self.font_body)
         self.btn_save.draw(self.screen, self.font_small)
         self.btn_load.draw(self.screen, self.font_small)
 
@@ -1227,6 +1321,43 @@ class ConfigWindow:
             err = self.font_small.render(self.modal_error, True, _hex_to_rgb("B73232"))
             self.screen.blit(err, (m["proc_input"].x, panel.bottom - max(52, int(68 * self.ui_scale))))
 
+    def _draw_start_modal(self, sm: dict[str, pygame.Rect | int]):
+        panel = sm["panel"]
+        self.start_modal_input.set_rect(sm["input"])
+        self.btn_start_modal_cancel.set_rect(sm["cancel"])
+        self.btn_start_modal_confirm.set_rect(sm["confirm"])
+
+        overlay = pygame.Surface(self.screen.get_size(), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 80))
+        self.screen.blit(overlay, (0, 0))
+
+        glow_rect = panel.inflate(10, 10)
+        glow = pygame.Surface((glow_rect.w, glow_rect.h), pygame.SRCALPHA)
+        _draw_smooth_rounded_rect(glow, glow.get_rect(), (*BLUE_GLOW, 62), 24)
+        self.screen.blit(glow, glow_rect.topleft)
+
+        _draw_smooth_rounded_rect(self.screen, panel, WHITE, 24)
+
+        title = self.font_h1.render("Iniciar simulación", True, TEXT_DARK)
+        subtitle = self.font_body.render("Línea de Producción", True, TEXT_HINT)
+        section = self.font_h2.render("Parámetros de simulación", True, TEXT_DARK)
+
+        top_x = self.start_modal_input.rect.x
+        self.screen.blit(title, (top_x, int(sm["title_y"])))
+        self.screen.blit(subtitle, (top_x, int(sm["subtitle_y"])))
+        self.screen.blit(section, (top_x, int(sm["section_y"])))
+
+        self.start_modal_input.draw(self.screen, self.font_body)
+        hint = self.font_small.render("Cantidad de productos a ingresar", True, TEXT_HINT)
+        self.screen.blit(hint, (self.start_modal_input.rect.x, int(sm["hint_y"])))
+
+        self.btn_start_modal_cancel.draw(self.screen, self.font_h2)
+        self.btn_start_modal_confirm.draw(self.screen, self.font_h2)
+
+        if self.start_modal_error:
+            err = self.font_small.render(self.start_modal_error, True, _hex_to_rgb("B73232"))
+            self.screen.blit(err, (top_x, self.btn_start_modal_cancel.rect.y - err.get_height() - 8))
+
     def _handle_main_event(self, event: pygame.event.Event, layout: dict):
         if event.type == pygame.MOUSEMOTION:
             self.btn_add_proc.update_hover(event.pos)
@@ -1239,8 +1370,6 @@ class ConfigWindow:
                 if hb["rect"].collidepoint(event.pos):
                     self.hover_card_index = hb["index"]
                     break
-
-        self.inp_cantidad.handle(event)
 
         if self.cards_scrollbar.handle(event):
             self.cards_scroll = self.cards_scrollbar.offset
@@ -1266,9 +1395,7 @@ class ConfigWindow:
             self._open_process_modal(None)
             return
         if self.btn_start.clicked(event):
-            result = self._construir_linea()
-            if result is not None:
-                pygame.event.post(pygame.event.Event(pygame.USEREVENT, {"action": "finish"}))
+            self._open_start_modal()
             return
         if self.btn_save.clicked(event):
             self._guardar_json()
@@ -1287,6 +1414,32 @@ class ConfigWindow:
                 return
             if event.key == pygame.K_l and (event.mod & pygame.KMOD_CTRL):
                 self._cargar_json()
+                return
+
+    def _handle_start_modal_event(self, event: pygame.event.Event, sm: dict[str, pygame.Rect | int]):
+        self.start_modal_input.set_rect(sm["input"])
+        self.btn_start_modal_cancel.set_rect(sm["cancel"])
+        self.btn_start_modal_confirm.set_rect(sm["confirm"])
+
+        if event.type == pygame.MOUSEMOTION:
+            self.btn_start_modal_cancel.update_hover(event.pos)
+            self.btn_start_modal_confirm.update_hover(event.pos)
+
+        self.start_modal_input.handle(event)
+
+        if self.btn_start_modal_cancel.clicked(event):
+            self._close_start_modal()
+            return
+        if self.btn_start_modal_confirm.clicked(event):
+            self._confirm_start_modal()
+            return
+
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_ESCAPE:
+                self._close_start_modal()
+                return
+            if event.key == pygame.K_RETURN:
+                self._confirm_start_modal()
                 return
 
     def _handle_modal_event(self, event: pygame.event.Event, panel: pygame.Rect, m: dict):
@@ -1364,12 +1517,14 @@ class ConfigWindow:
 
             layout = self._layout()
             modal_layout = self._modal_layout(layout["modal"]) if self.modal_open else None
+            start_modal_layout = self._start_modal_layout() if self.start_modal_open else None
 
-            self.inp_cantidad.update(dt)
             if self.modal_open:
                 self.modal_proc_name.update(dt)
                 self.modal_task_name.update(dt)
                 self.modal_task_time.update(dt)
+            if self.start_modal_open:
+                self.start_modal_input.update(dt)
 
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -1391,6 +1546,10 @@ class ConfigWindow:
                     if modal_layout is None:
                         modal_layout = self._modal_layout(layout["modal"])
                     self._handle_modal_event(event, layout["modal"], modal_layout)
+                elif self.start_modal_open:
+                    if start_modal_layout is None:
+                        start_modal_layout = self._start_modal_layout()
+                    self._handle_start_modal_event(event, start_modal_layout)
                 else:
                     self._handle_main_event(event, layout)
 
@@ -1399,6 +1558,10 @@ class ConfigWindow:
                 if modal_layout is None:
                     modal_layout = self._modal_layout(layout["modal"])
                 self._draw_modal(layout["modal"], modal_layout)
+            elif self.start_modal_open:
+                if start_modal_layout is None:
+                    start_modal_layout = self._start_modal_layout()
+                self._draw_start_modal(start_modal_layout)
 
             pygame.display.flip()
 
