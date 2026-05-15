@@ -18,7 +18,9 @@ class Proceso:
 
         for i, tarea in enumerate(self.tareas):
             tarea.proceso = self
-            tarea.siguiente_tarea = self.tareas[i + 1] if i + 1 < len(self.tareas) else None
+            tarea.siguiente_tarea = (
+                self.tareas[i + 1] if i + 1 < len(self.tareas) else None
+            )
 
     @property
     def nombre_proceso(self):
