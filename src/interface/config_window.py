@@ -424,6 +424,9 @@ class ConfigWindow:
         self.modal_predecessor_name: str | None = None
         self.modal_predecessor_left_hitbox = pygame.Rect(0, 0, 0, 0)
         self.modal_predecessor_right_hitbox = pygame.Rect(0, 0, 0, 0)
+        self.modal_predecessor_at_open: str | None = None
+        self.modal_initial_at_open: bool = False
+        self.modal_final_at_open: bool = False
 
         self.modal_proc_name = TextInput(
             (0, 0, 100, 56), placeholder="Placeholder text here...", max_len=40
@@ -1211,6 +1214,9 @@ class ConfigWindow:
             proc_cfg.get("predecesor"),
             fallback_to_last=index is None,
         )
+        self.modal_predecessor_at_open = self.modal_predecessor_name
+        self.modal_initial_at_open = self.modal_chk_initial.checked
+        self.modal_final_at_open = self.modal_chk_final.checked
         self.modal_tasks = proc_cfg["tareas"]
         self._set_task_add_mode(reseed=True)
 
@@ -1361,7 +1367,19 @@ class ConfigWindow:
                     proc["predecesor"] = name
 
         self._normalize_predecessor_refs()
-        self._reposition_process_by_predecessor(target_index)
+
+        # Solo reposicionar si el usuario realmente cambio algo que afecta
+        # la posicion. Asi editar nombre o reordenar tareas no mueve el
+        # proceso aunque el predecesor guardado este desactualizado por
+        # swaps previos hechos desde los chevrons de las cards.
+        should_reposition = (
+            self.modal_edit_index is None
+            or self.modal_predecessor_name != self.modal_predecessor_at_open
+            or self.modal_chk_initial.checked != self.modal_initial_at_open
+            or self.modal_chk_final.checked != self.modal_final_at_open
+        )
+        if should_reposition:
+            self._reposition_process_by_predecessor(target_index)
 
         self._close_modal()
 
