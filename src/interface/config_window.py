@@ -955,7 +955,9 @@ class ConfigWindow:
                 (i for i, p in enumerate(self.procesos_cfg) if p.get("es_inicial")),
                 None,
             )
-            insert_idx = initial_idx + 1 if initial_idx is not None else len(self.procesos_cfg)
+            insert_idx = (
+                initial_idx + 1 if initial_idx is not None else len(self.procesos_cfg)
+            )
             self.procesos_cfg.insert(insert_idx, proc)
             return
 
@@ -973,14 +975,18 @@ class ConfigWindow:
                 (i for i, p in enumerate(self.procesos_cfg) if p.get("es_inicial")),
                 None,
             )
-            insert_idx = initial_idx + 1 if initial_idx is not None else len(self.procesos_cfg)
+            insert_idx = (
+                initial_idx + 1 if initial_idx is not None else len(self.procesos_cfg)
+            )
             self.procesos_cfg.insert(insert_idx, proc)
             return
 
         self.procesos_cfg.insert(pred_idx + 1, proc)
 
     def _swap_modal_tasks(self, idx_a: int, idx_b: int):
-        if not (0 <= idx_a < len(self.modal_tasks) and 0 <= idx_b < len(self.modal_tasks)):
+        if not (
+            0 <= idx_a < len(self.modal_tasks) and 0 <= idx_b < len(self.modal_tasks)
+        ):
             return
 
         self.modal_tasks[idx_a], self.modal_tasks[idx_b] = (
@@ -1353,7 +1359,9 @@ class ConfigWindow:
             self.cards_scroll = 0.0
             self.cards_scrollbar.offset = 0.0
         else:
-            old_name = str(self.procesos_cfg[self.modal_edit_index].get("nombre", "")).strip()
+            old_name = str(
+                self.procesos_cfg[self.modal_edit_index].get("nombre", "")
+            ).strip()
             self.procesos_cfg[self.modal_edit_index] = data
             target_index = self.modal_edit_index
 
@@ -1773,7 +1781,9 @@ class ConfigWindow:
             fill = BLUE_SOFT if can_cycle_pred else _hex_to_rgb("E3E6EF")
             chevron = BLUE_ACTION if can_cycle_pred else TEXT_HINT
             _draw_smooth_circle(self.screen, rect.center, rect.w // 2, fill)
-            self._draw_chevron(self.screen, rect.center, rect.w // 2, chevron, direction)
+            self._draw_chevron(
+                self.screen, rect.center, rect.w // 2, chevron, direction
+            )
 
         tname_lbl = self.font_h2.render("Nombre de la tarea", True, TEXT_MID)
         self.screen.blit(
@@ -1874,14 +1884,17 @@ class ConfigWindow:
                 item_rect.centery,
             )
             move_left_rect.center = (
-                move_right_rect.centerx - (move_radius * 2 + max(8, int(10 * self.ui_scale))),
+                move_right_rect.centerx
+                - (move_radius * 2 + max(8, int(10 * self.ui_scale))),
                 item_rect.centery,
             )
 
             can_move_left = i > 0
             can_move_right = i + 1 < len(self.modal_tasks)
             if can_move_left:
-                _draw_smooth_circle(self.screen, move_left_rect.center, move_radius, BLUE_SOFT)
+                _draw_smooth_circle(
+                    self.screen, move_left_rect.center, move_radius, BLUE_SOFT
+                )
                 self._draw_chevron(
                     self.screen,
                     move_left_rect.center,
@@ -1892,7 +1905,9 @@ class ConfigWindow:
                 self.modal_task_move_left_hitboxes.append((i, move_left_rect.copy()))
 
             if can_move_right:
-                _draw_smooth_circle(self.screen, move_right_rect.center, move_radius, BLUE_SOFT)
+                _draw_smooth_circle(
+                    self.screen, move_right_rect.center, move_radius, BLUE_SOFT
+                )
                 self._draw_chevron(
                     self.screen,
                     move_right_rect.center,

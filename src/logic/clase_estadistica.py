@@ -28,11 +28,13 @@ class Estadisticas:
                     continue
                 espera_total += tarea.total_espera_acumulada()
 
-            resultados.append({
-                "proceso": proceso.nombre,
-                "num_tareas": len(proceso.tareas),
-                "espera_total": espera_total,
-            })
+            resultados.append(
+                {
+                    "proceso": proceso.nombre,
+                    "num_tareas": len(proceso.tareas),
+                    "espera_total": espera_total,
+                }
+            )
         return resultados
 
     def tarea_mayor_concentracion_espera(self):
@@ -162,7 +164,9 @@ class Estadisticas:
     def mostrar_resumen(self):
         print()
         print("========== ESTADISTICAS ==========")
-        print(f"Cantidad de productos procesados: {self.cantidad_productos_procesados()}")
+        print(
+            f"Cantidad de productos procesados: {self.cantidad_productos_procesados()}"
+        )
         print(f"Tiempo total de simulacion: {self.tiempo_total_simulacion()} ciclos")
 
         print()
