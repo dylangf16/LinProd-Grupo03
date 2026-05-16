@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(python src/logic/test_linea_produccion.py)",
-      "Bash(.venv/Scripts/python.exe src/logic/test_linea_produccion.py)"
+      "Bash(.venv/Scripts/python.exe src/logic/test_linea_produccion.py)",
+      "Bash(dir /B \"c:\\\\Users\\\\maest\\\\OneDrive\\\\Documents\\\\TEC\\\\HW_SW\\\\Proy2\\\\LinProd-Grupo03\")",
+      "Bash(py -3.13 -c \"import ast; ast.parse\\(open\\('src/interface/config_window.py', encoding='utf-8'\\).read\\(\\)\\); print\\('OK'\\)\")"
     ]
   }
 }
