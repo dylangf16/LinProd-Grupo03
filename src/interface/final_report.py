@@ -21,7 +21,6 @@ if str(ROOT / "src" / "logic") not in sys.path:
 from src.logic.clase_estadistica import Estadisticas
 from src.logic.clase_linea_produccion import LineaProduccion
 
-
 WIN_W = 980
 WIN_H = 640
 
@@ -131,8 +130,14 @@ class FinalReportWindow:
 
     def _report_rows(self) -> list[tuple[str, str]]:
         return [
-            ("Primer producto finalizo en", self._fmt_t(self.stats.tiempo_primer_producto())),
-            ("Ultimo producto finalizo en", self._fmt_t(self.stats.tiempo_ultimo_producto())),
+            (
+                "Primer producto finalizo en",
+                self._fmt_t(self.stats.tiempo_primer_producto()),
+            ),
+            (
+                "Ultimo producto finalizo en",
+                self._fmt_t(self.stats.tiempo_ultimo_producto()),
+            ),
             (
                 "Tiempo promedio de finalizacion",
                 self._fmt_cycles(self.stats.tiempo_promedio_finalizacion()),
@@ -262,8 +267,12 @@ class FinalReportWindow:
         )
 
         self.screen.blit(title, (right_rect.x, right_rect.y))
-        self.screen.blit(product_count, (right_rect.x, right_rect.y + title.get_height() + 2))
-        self.screen.blit(sim_time, (right_rect.x, right_rect.y + title.get_height() + 28))
+        self.screen.blit(
+            product_count, (right_rect.x, right_rect.y + title.get_height() + 2)
+        )
+        self.screen.blit(
+            sim_time, (right_rect.x, right_rect.y + title.get_height() + 28)
+        )
 
         cards_top = right_rect.y + 98
         card_h = 78
@@ -296,7 +305,9 @@ class FinalReportWindow:
 
             name = self.font_b.render(str(proc["proceso"]), True, TEXT_DARK)
             tcount = self.font.render(f"Tareas: {proc['num_tareas']}", True, TEXT_MID)
-            wait = self.font.render(f"Espera: {proc['espera_total']} ciclos", True, TEXT_MID)
+            wait = self.font.render(
+                f"Espera: {proc['espera_total']} ciclos", True, TEXT_MID
+            )
 
             self.screen.blit(name, (rect.x + 14, rect.y + 12))
             self.screen.blit(tcount, (rect.x + 14, rect.y + 40))
@@ -304,7 +315,9 @@ class FinalReportWindow:
 
         missing = len(per_process) - len(visible)
         if missing > 0:
-            more = self.font_sm.render(f"+{missing} procesos adicionales", True, TEXT_SOFT)
+            more = self.font_sm.render(
+                f"+{missing} procesos adicionales", True, TEXT_SOFT
+            )
             self.screen.blit(more, (right_rect.x + 4, right_rect.bottom - 18))
 
     def _draw(self):
